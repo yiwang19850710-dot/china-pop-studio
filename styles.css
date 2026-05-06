@@ -38,9 +38,9 @@ a {
 .app-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: start;
   gap: 20px;
   width: min(1480px, calc(100vw - 32px));
-  min-height: calc(100vh - 32px);
   margin: 16px auto;
 }
 
@@ -54,7 +54,8 @@ a {
 
 .studio {
   display: grid;
-  grid-template-rows: auto minmax(280px, 1fr) auto;
+  grid-template-rows: auto auto auto;
+  align-content: start;
   gap: 16px;
   padding: 18px;
   border-radius: 8px;
@@ -62,6 +63,7 @@ a {
 
 .controls {
   overflow: auto;
+  max-height: calc(100vh - 32px);
   padding: 18px;
   border-radius: 8px;
 }
@@ -115,19 +117,21 @@ h2 {
 .stage-wrap {
   position: relative;
   display: grid;
-  place-items: center;
+  place-items: start center;
   min-height: 0;
 }
 
 #stage {
   display: block;
-  width: 100%;
+  width: min(100%, calc((100vh - 190px) * 9 / 16), 620px);
   height: auto;
-  max-height: calc(100vh - 160px);
   border-radius: 8px;
   background: #05080a;
-  object-fit: contain;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+#stage[width="1280"] {
+  width: min(100%, calc((100vh - 190px) * 16 / 9), 980px);
 }
 
 #camera {
@@ -285,6 +289,10 @@ input[type="range"] {
   font-weight: 800;
 }
 
+.template-admin[hidden] {
+  display: none;
+}
+
 .manager-panel {
   display: grid;
   gap: 13px;
@@ -327,7 +335,11 @@ input[type="range"] {
   }
 
   #stage {
-    max-height: none;
+    width: min(100%, 540px);
+  }
+
+  #stage[width="1280"] {
+    width: 100%;
   }
 }
 
