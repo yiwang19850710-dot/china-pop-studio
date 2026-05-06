@@ -88,29 +88,29 @@
             </label>
 
             <label>
-              Seal character
+              Seal / 印章文字
               <input id="managerSeal" maxlength="2" type="text" />
             </label>
 
             <div class="manager-sliders">
               <label>
-                Person X <span id="managerSlotXValue">50%</span>
-                <input id="managerSlotX" min="20" max="80" type="range" />
+                Camera X / 摄像头左右 <span id="managerSlotXValue">50%</span>
+                <input id="managerSlotX" min="5" max="95" type="range" />
               </label>
 
               <label>
-                Person Y <span id="managerSlotYValue">44%</span>
-                <input id="managerSlotY" min="20" max="78" type="range" />
+                Camera Y / 摄像头上下 <span id="managerSlotYValue">44%</span>
+                <input id="managerSlotY" min="5" max="95" type="range" />
               </label>
 
               <label>
-                Person scale <span id="managerSlotScaleValue">76%</span>
-                <input id="managerSlotScale" min="50" max="105" type="range" />
+                Camera size / 摄像头大小 <span id="managerSlotScaleValue">76%</span>
+                <input id="managerSlotScale" min="35" max="150" type="range" />
               </label>
             </div>
 
             <label>
-              Person shape
+              Camera shape / 摄像头形状
               <select id="managerSlotShape">
                 <option value="oval">Oval portrait</option>
                 <option value="circle">Round badge</option>
@@ -189,5 +189,6 @@
     <script src="app.js"></script>
     <script src="admin.js"></script>
     <script src="media-upload.js"></script>
+    <script src="admin-fixes.js"></script>
   </body>
 </html>
