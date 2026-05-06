@@ -232,14 +232,6 @@
     const y = centerY - boxH / 2;
     const feather = Math.max(12, Math.min(W, H) * 0.028);
 
-    stageCtx.save();
-    stageCtx.shadowColor = "rgba(255, 198, 72, 0.42)";
-    stageCtx.shadowBlur = 26;
-    stageCtx.fillStyle = "rgba(255, 226, 124, 0.12)";
-    applyPortraitClip(stageCtx, x - feather, y - feather, boxW + feather * 2, boxH + feather * 2, style);
-    stageCtx.fill();
-    stageCtx.restore();
-
     syncCanvasSize(portraitLayer, portraitLayerCtx, W, H);
     syncCanvasSize(portraitMask, portraitMaskCtx, W, H);
 
@@ -264,18 +256,8 @@
         portraitLayerCtx.restore();
       }
 
-      portraitLayerCtx.save();
-      portraitLayerCtx.globalCompositeOperation = "source-atop";
-      const softGrade = portraitLayerCtx.createLinearGradient(x, y, x, y + boxH);
-      softGrade.addColorStop(0, "rgba(255, 248, 226, 0.08)");
-      softGrade.addColorStop(0.58, "rgba(255, 224, 142, 0.05)");
-      softGrade.addColorStop(1, "rgba(42, 24, 12, 0.08)");
-      portraitLayerCtx.fillStyle = softGrade;
-      portraitLayerCtx.fillRect(x, y, boxW, boxH);
-      portraitLayerCtx.restore();
-
       stageCtx.save();
-      stageCtx.globalAlpha = 0.98;
+      stageCtx.globalAlpha = 1;
       stageCtx.drawImage(portraitLayer, 0, 0);
       stageCtx.restore();
     } else {
@@ -292,15 +274,17 @@
       stageCtx.restore();
     }
 
-    stageCtx.save();
-    stageCtx.globalCompositeOperation = "screen";
-    const mist = stageCtx.createLinearGradient(0, y + boxH * 0.6, 0, y + boxH + feather * 2);
-    mist.addColorStop(0, "rgba(255, 244, 210, 0)");
-    mist.addColorStop(0.7, "rgba(255, 232, 170, 0.08)");
-    mist.addColorStop(1, "rgba(255, 216, 126, 0.11)");
-    stageCtx.fillStyle = mist;
-    stageCtx.fillRect(Math.max(0, x - feather * 2), y + boxH * 0.58, Math.min(W, boxW + feather * 4), boxH * 0.45);
-    stageCtx.restore();
+    if (style !== "full") {
+      stageCtx.save();
+      stageCtx.globalCompositeOperation = "screen";
+      const rim = stageCtx.createRadialGradient(centerX, centerY, Math.min(boxW, boxH) * 0.34, centerX, centerY, Math.max(boxW, boxH) * 0.58);
+      rim.addColorStop(0, "rgba(255, 255, 255, 0)");
+      rim.addColorStop(1, "rgba(255, 255, 255, 0.035)");
+      stageCtx.fillStyle = rim;
+      applyPortraitClip(stageCtx, x - 3, y - 3, boxW + 6, boxH + 6, style);
+      stageCtx.fill();
+      stageCtx.restore();
+    }
   }
 
   try {
