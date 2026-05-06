@@ -273,18 +273,6 @@
       stageCtx.fillText("Start camera", x + boxW / 2, y + boxH / 2);
       stageCtx.restore();
     }
-
-    if (style !== "full") {
-      stageCtx.save();
-      stageCtx.globalCompositeOperation = "screen";
-      const rim = stageCtx.createRadialGradient(centerX, centerY, Math.min(boxW, boxH) * 0.34, centerX, centerY, Math.max(boxW, boxH) * 0.58);
-      rim.addColorStop(0, "rgba(255, 255, 255, 0)");
-      rim.addColorStop(1, "rgba(255, 255, 255, 0.035)");
-      stageCtx.fillStyle = rim;
-      applyPortraitClip(stageCtx, x - 3, y - 3, boxW + 6, boxH + 6, style);
-      stageCtx.fill();
-      stageCtx.restore();
-    }
   }
 
   try {
