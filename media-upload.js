@@ -17,6 +17,19 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function hasOwnValue(source, key) {
+    return Boolean(source) && Object.prototype.hasOwnProperty.call(source, key);
+  }
+
+  function copyText(source, key, fallback = "") {
+    const value = hasOwnValue(source, key) ? source[key] : fallback;
+    return String(value ?? "");
+  }
+
+  function hasVisibleText(value) {
+    return String(value ?? "").trim().length > 0;
+  }
+
   function makeTemplateId(value) {
     const base = String(value || `template-${Date.now()}`)
       .toLowerCase()
@@ -124,6 +137,11 @@
 
   function drawUploadedMediaPoster(ctx, w, h, t, power, config = {}) {
     const copy = config.copy || {};
+    const titleZh = copyText(copy, "titleZh", "中国名场面");
+    const titleEn = copyText(copy, "titleEn", "CHINA SCENE MODE");
+    const subtitleZh = copyText(copy, "subtitleZh", "一秒融入本地生活");
+    const subtitleEn = copyText(copy, "subtitleEn", "DROP ME INTO LOCAL CHINA");
+    const seal = copyText(copy, "seal", "入");
     const media = getMediaElement(config.media);
     let drewMedia = false;
     if (media) {
@@ -148,19 +166,11 @@
     ctx.fillRect(0, 0, w, h);
 
     if (typeof drawGoldConfetti === "function") drawGoldConfetti(ctx, w, h, t, power * 0.7);
-    if (typeof drawSceneCaption === "function") {
-      drawSceneCaption(
-        ctx,
-        w,
-        h,
-        copy.titleZh || "中国名场面",
-        copy.titleEn || "CHINA SCENE MODE",
-        copy.subtitleZh || "一秒融入本地生活",
-        copy.subtitleEn || "DROP ME INTO LOCAL CHINA",
-      );
+    if (typeof drawSceneCaption === "function" && [titleZh, titleEn, subtitleZh, subtitleEn].some(hasVisibleText)) {
+      drawSceneCaption(ctx, w, h, titleZh, titleEn, subtitleZh, subtitleEn);
     }
-    if (typeof drawSeal === "function") {
-      drawSeal(ctx, w * 0.82, h * 0.18, Math.min(w, h) * 0.11, copy.seal || "入");
+    if (typeof drawSeal === "function" && hasVisibleText(seal)) {
+      drawSeal(ctx, w * 0.82, h * 0.18, Math.min(w, h) * 0.11, seal);
     }
   }
 
