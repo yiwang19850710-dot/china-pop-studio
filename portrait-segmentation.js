@@ -17,6 +17,10 @@
   let lastSegmentAt = 0;
   let hasFailed = false;
   let didShowLoading = false;
+  const cleanMask = document.createElement("canvas");
+  const cleanMaskCtx = cleanMask.getContext("2d", { willReadFrequently: true });
+  let latestMaskRevision = 0;
+  let cleanMaskKey = "";
 
   function setAppStatus(message) {
     try {
@@ -81,6 +85,7 @@
           latestMask = results.segmentationMask;
           latestMaskWidth = results.image?.width || camera.videoWidth || 0;
           latestMaskHeight = results.image?.height || camera.videoHeight || 0;
+          latestMaskRevision += 1;
         });
         setAppStatus("Camera cutout ready");
         return true;
@@ -135,13 +140,12 @@
     }
   }
 
-  function drawMaskCover(layerCtx, x, y, boxW, boxH, cameraCrop) {
+  function drawMaskImageCover(layerCtx, x, y, boxW, boxH, cameraCrop) {
     if (!latestMask || !latestMaskWidth || !latestMaskHeight) return false;
     const sx = cameraCrop.sx * latestMaskWidth / camera.videoWidth;
     const sy = cameraCrop.sy * latestMaskHeight / camera.videoHeight;
     const sw = cameraCrop.sw * latestMaskWidth / camera.videoWidth;
     const sh = cameraCrop.sh * latestMaskHeight / camera.videoHeight;
-    layerCtx.globalCompositeOperation = "destination-in";
     if (mirrorToggle.checked) {
       layerCtx.translate(x + boxW, y);
       layerCtx.scale(-1, 1);
@@ -149,6 +153,60 @@
     } else {
       layerCtx.drawImage(latestMask, sx, sy, sw, sh, x, y, boxW, boxH);
     }
+    return true;
+  }
+
+  function rebuildCleanMask(x, y, boxW, boxH, cameraCrop) {
+    syncCanvasSize(cleanMask, cleanMaskCtx, W, H);
+
+    cleanMaskCtx.save();
+    cleanMaskCtx.filter = "blur(2px)";
+    drawMaskImageCover(cleanMaskCtx, x, y, boxW, boxH, cameraCrop);
+    cleanMaskCtx.restore();
+
+    const left = Math.max(0, Math.floor(x - 2));
+    const top = Math.max(0, Math.floor(y - 2));
+    const right = Math.min(W, Math.ceil(x + boxW + 2));
+    const bottom = Math.min(H, Math.ceil(y + boxH + 2));
+    const width = Math.max(1, right - left);
+    const height = Math.max(1, bottom - top);
+    const image = cleanMaskCtx.getImageData(left, top, width, height);
+    const data = image.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const maskValue = data[i];
+      const alpha = Math.max(0, Math.min(1, (maskValue - 120) / 86));
+      data[i] = 255;
+      data[i + 1] = 255;
+      data[i + 2] = 255;
+      data[i + 3] = Math.round(alpha * 255);
+    }
+
+    cleanMaskCtx.putImageData(image, left, top);
+  }
+
+  function drawMaskCover(layerCtx, x, y, boxW, boxH, cameraCrop) {
+    if (!latestMask || !latestMaskWidth || !latestMaskHeight) return false;
+    const key = [
+      latestMaskRevision,
+      Math.round(x),
+      Math.round(y),
+      Math.round(boxW),
+      Math.round(boxH),
+      Math.round(cameraCrop.sx),
+      Math.round(cameraCrop.sy),
+      Math.round(cameraCrop.sw),
+      Math.round(cameraCrop.sh),
+      mirrorToggle.checked ? "mirror" : "normal",
+    ].join(":");
+
+    if (key !== cleanMaskKey) {
+      rebuildCleanMask(x, y, boxW, boxH, cameraCrop);
+      cleanMaskKey = key;
+    }
+
+    layerCtx.globalCompositeOperation = "destination-in";
+    layerCtx.drawImage(cleanMask, 0, 0);
     return true;
   }
 
@@ -208,11 +266,11 @@
 
       portraitLayerCtx.save();
       portraitLayerCtx.globalCompositeOperation = "source-atop";
-      const warmth = portraitLayerCtx.createLinearGradient(x, y, x, y + boxH);
-      warmth.addColorStop(0, "rgba(255, 233, 184, 0.08)");
-      warmth.addColorStop(0.56, "rgba(224, 40, 23, 0.1)");
-      warmth.addColorStop(1, "rgba(255, 92, 24, 0.18)");
-      portraitLayerCtx.fillStyle = warmth;
+      const softGrade = portraitLayerCtx.createLinearGradient(x, y, x, y + boxH);
+      softGrade.addColorStop(0, "rgba(255, 248, 226, 0.08)");
+      softGrade.addColorStop(0.58, "rgba(255, 224, 142, 0.05)");
+      softGrade.addColorStop(1, "rgba(42, 24, 12, 0.08)");
+      portraitLayerCtx.fillStyle = softGrade;
       portraitLayerCtx.fillRect(x, y, boxW, boxH);
       portraitLayerCtx.restore();
 
@@ -235,10 +293,11 @@
     }
 
     stageCtx.save();
+    stageCtx.globalCompositeOperation = "screen";
     const mist = stageCtx.createLinearGradient(0, y + boxH * 0.6, 0, y + boxH + feather * 2);
-    mist.addColorStop(0, "rgba(255, 92, 24, 0)");
-    mist.addColorStop(0.7, "rgba(255, 72, 18, 0.16)");
-    mist.addColorStop(1, "rgba(188, 10, 13, 0.24)");
+    mist.addColorStop(0, "rgba(255, 244, 210, 0)");
+    mist.addColorStop(0.7, "rgba(255, 232, 170, 0.08)");
+    mist.addColorStop(1, "rgba(255, 216, 126, 0.11)");
     stageCtx.fillStyle = mist;
     stageCtx.fillRect(Math.max(0, x - feather * 2), y + boxH * 0.58, Math.min(W, boxW + feather * 4), boxH * 0.45);
     stageCtx.restore();
