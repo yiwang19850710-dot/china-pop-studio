@@ -32,173 +32,97 @@ let recordedChunks = [];
 let countdownUntil = 0;
 let countdownStart = 0;
 
-const templates = [
-  {
-    id: "horseyear",
-    name: "Spring Horse 2026",
-    colors: ["#b91512", "#f2c45a", "#ff5b19"],
-    draw(ctx, w, h, t, power) {
-      drawHorseYearPoster(ctx, w, h, t, power);
-    },
+const templateConfigs = window.CHINA_POP_TEMPLATE_CONFIGS || [];
+const templateRenderers = {
+  horseyear(config, ctx, w, h, t, power) {
+    drawHorseYearPoster(ctx, w, h, t, power, config);
   },
-  {
-    id: "morning",
-    name: "早上好 / Good Morning",
-    colors: ["#fa4b17", "#ffe06c", "#6fcf63"],
-    draw(ctx, w, h, t, power) {
-      drawDailyGreetingPoster(ctx, w, h, t, power, {
-        greeting: "早上好",
-        greetingEn: "GOOD MORNING",
-        sub: "新的一天 鸿运当头",
-        subEn: "NEW DAY, BIG LUCK",
-        seal: "旺",
-        time: "morning",
-      });
-    },
+  dailyGreeting(config, ctx, w, h, t, power) {
+    drawDailyGreetingPoster(ctx, w, h, t, power, config.copy);
   },
-  {
-    id: "noon",
-    name: "中午好 / Good Noon",
-    colors: ["#e23518", "#ffd15f", "#8bd45b"],
-    draw(ctx, w, h, t, power) {
-      drawDailyGreetingPoster(ctx, w, h, t, power, {
-        greeting: "中午好",
-        greetingEn: "GOOD NOON",
-        sub: "吃饱喝足 财气十足",
-        subEn: "EAT WELL, GET RICH",
-        seal: "饱",
-        time: "noon",
-      });
-    },
+  squareDance(config, ctx, w, h, t, power) {
+    drawSquareDancePoster(ctx, w, h, t, power, config);
   },
-  {
-    id: "evening",
-    name: "晚上好 / Good Evening",
-    colors: ["#261447", "#ff3d6e", "#ffd85a"],
-    draw(ctx, w, h, t, power) {
-      drawDailyGreetingPoster(ctx, w, h, t, power, {
-        greeting: "晚上好",
-        greetingEn: "GOOD EVENING",
-        sub: "灯火辉煌 好运登场",
-        subEn: "LIGHTS ON, LUCK UP",
-        seal: "夜",
-        time: "evening",
-      });
-    },
+  bellyPark(config, ctx, w, h, t, power) {
+    drawBellyParkPoster(ctx, w, h, t, power, config);
   },
-  {
-    id: "squaredance",
-    name: "广场舞 / Square Dance",
-    colors: ["#d91417", "#ffe66d", "#4bd2ff"],
-    draw(ctx, w, h, t, power) {
-      drawSquareDancePoster(ctx, w, h, t, power);
-    },
+  dragonFestival(config, ctx, w, h, t, power) {
+    drawFestivalBase(ctx, w, h, "#7d1712", "#1a1010", "#f2c45a");
+    drawSun(ctx, w * 0.78, h * 0.23, h * 0.19, "#f2c45a", 0.88);
+    drawDragonRibbon(ctx, w, h, t, power);
+    drawLanterns(ctx, w, h, t, power);
+    drawSeal(ctx, w - 176, h - 146, 110, config.copy?.seal || "潮");
   },
-  {
-    id: "bellypark",
-    name: "公园大爷 / Park Uncle",
-    colors: ["#4c9a52", "#f35a22", "#ffe48a"],
-    draw(ctx, w, h, t, power) {
-      drawBellyParkPoster(ctx, w, h, t, power);
-    },
+  operaStage(config, ctx, w, h, t, power) {
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, "#07111e");
+    g.addColorStop(0.52, "#142b43");
+    g.addColorStop(1, "#1a1018");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    drawCurtains(ctx, w, h, t, power);
+    drawOperaClouds(ctx, w, h, t);
+    drawStageLights(ctx, w, h, t);
+    drawSeal(ctx, 122, h - 132, 100, config.copy?.seal || "京");
   },
-  {
-    id: "dragon",
-    name: "Dragon Festival",
-    colors: ["#7d1712", "#f2c45a", "#111820"],
-    draw(ctx, w, h, t, power) {
-      drawFestivalBase(ctx, w, h, "#7d1712", "#1a1010", "#f2c45a");
-      drawSun(ctx, w * 0.78, h * 0.23, h * 0.19, "#f2c45a", 0.88);
-      drawDragonRibbon(ctx, w, h, t, power);
-      drawLanterns(ctx, w, h, t, power);
-      drawSeal(ctx, w - 176, h - 146, 110, "潮");
-    },
+  lanternStreet(config, ctx, w, h, t, power) {
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, "#111d2c");
+    g.addColorStop(0.5, "#182821");
+    g.addColorStop(1, "#331812");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    drawStreetPerspective(ctx, w, h);
+    drawLanternRows(ctx, w, h, t, power);
+    drawGoldConfetti(ctx, w, h, t, power);
+    drawSeal(ctx, w - 156, 136, 92, config.copy?.seal || "福");
   },
-  {
-    id: "opera",
-    name: "Opera Stage Pop",
-    colors: ["#10233b", "#e64a43", "#f3d575"],
-    draw(ctx, w, h, t, power) {
-      const g = ctx.createLinearGradient(0, 0, w, h);
-      g.addColorStop(0, "#07111e");
-      g.addColorStop(0.52, "#142b43");
-      g.addColorStop(1, "#1a1018");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-      drawCurtains(ctx, w, h, t, power);
-      drawOperaClouds(ctx, w, h, t);
-      drawStageLights(ctx, w, h, t);
-      drawSeal(ctx, 122, h - 132, 100, "京");
-    },
+  greatWall(config, ctx, w, h, t, power) {
+    const sky = ctx.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, "#153247");
+    sky.addColorStop(0.55, "#e0984d");
+    sky.addColorStop(1, "#271715");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
+    drawMountains(ctx, w, h);
+    drawWall(ctx, w, h, t);
+    drawFirework(ctx, w * 0.77, h * 0.24, 90, t, "#f8d36a", power);
+    drawFirework(ctx, w * 0.22, h * 0.28, 70, t + 1.4, "#e94a3f", power);
+    drawSeal(ctx, 135, 132, 94, config.copy?.seal || "游");
   },
-  {
-    id: "lantern",
-    name: "Lantern Street",
-    colors: ["#14211d", "#d63f35", "#f5bd4d"],
-    draw(ctx, w, h, t, power) {
-      const g = ctx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, "#111d2c");
-      g.addColorStop(0.5, "#182821");
-      g.addColorStop(1, "#331812");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-      drawStreetPerspective(ctx, w, h);
-      drawLanternRows(ctx, w, h, t, power);
-      drawGoldConfetti(ctx, w, h, t, power);
-      drawSeal(ctx, w - 156, 136, 92, "福");
-    },
+  porcelain(config, ctx, w, h, t, power) {
+    const bg = ctx.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, "#edf0e7");
+    bg.addColorStop(1, "#b7d4da");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+    drawPorcelainPattern(ctx, w, h, t, power);
+    drawBrushCircle(ctx, w * 0.49, h * 0.48, h * 0.42, "#1c5f9f");
+    drawSeal(ctx, w - 158, h - 132, 94, config.copy?.seal || "青");
   },
-  {
-    id: "greatwall",
-    name: "Great Wall Remix",
-    colors: ["#183543", "#d04a37", "#e7c466"],
-    draw(ctx, w, h, t, power) {
-      const sky = ctx.createLinearGradient(0, 0, 0, h);
-      sky.addColorStop(0, "#153247");
-      sky.addColorStop(0.55, "#e0984d");
-      sky.addColorStop(1, "#271715");
-      ctx.fillStyle = sky;
-      ctx.fillRect(0, 0, w, h);
-      drawMountains(ctx, w, h);
-      drawWall(ctx, w, h, t);
-      drawFirework(ctx, w * 0.77, h * 0.24, 90, t, "#f8d36a", power);
-      drawFirework(ctx, w * 0.22, h * 0.28, 70, t + 1.4, "#e94a3f", power);
-      drawSeal(ctx, 135, 132, 94, "游");
-    },
+  cyberChinatown(config, ctx, w, h, t, power) {
+    const g = ctx.createRadialGradient(w * 0.5, h * 0.45, 40, w * 0.5, h * 0.5, w * 0.8);
+    g.addColorStop(0, "#293552");
+    g.addColorStop(0.45, "#111421");
+    g.addColorStop(1, "#070910");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    drawNeonGrid(ctx, w, h, t);
+    drawNeonSigns(ctx, w, h, t, power);
+    drawFirework(ctx, w * 0.64, h * 0.2, 62, t, "#37d6c6", power);
+    drawSeal(ctx, 150, h - 128, 92, config.copy?.seal || "潮");
   },
-  {
-    id: "porcelain",
-    name: "Blue Porcelain",
-    colors: ["#e9efe9", "#1d5b9a", "#bf2f32"],
-    draw(ctx, w, h, t, power) {
-      const bg = ctx.createLinearGradient(0, 0, w, h);
-      bg.addColorStop(0, "#edf0e7");
-      bg.addColorStop(1, "#b7d4da");
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, w, h);
-      drawPorcelainPattern(ctx, w, h, t, power);
-      drawBrushCircle(ctx, w * 0.49, h * 0.48, h * 0.42, "#1c5f9f");
-      drawSeal(ctx, w - 158, h - 132, 94, "青");
-    },
+};
+const templates = templateConfigs.map((config) => ({
+  ...config,
+  draw(ctx, w, h, t, power) {
+    const renderer = templateRenderers[config.renderer];
+    if (!renderer) {
+      throw new Error(`Missing renderer for template: ${config.id}`);
+    }
+    renderer(config, ctx, w, h, t, power);
   },
-  {
-    id: "neon",
-    name: "Cyber Chinatown",
-    colors: ["#101421", "#ee3e52", "#37d6c6"],
-    draw(ctx, w, h, t, power) {
-      const g = ctx.createRadialGradient(w * 0.5, h * 0.45, 40, w * 0.5, h * 0.5, w * 0.8);
-      g.addColorStop(0, "#293552");
-      g.addColorStop(0.45, "#111421");
-      g.addColorStop(1, "#070910");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-      drawNeonGrid(ctx, w, h, t);
-      drawNeonSigns(ctx, w, h, t, power);
-      drawFirework(ctx, w * 0.64, h * 0.2, 62, t, "#37d6c6", power);
-      drawSeal(ctx, 150, h - 128, 92, "潮");
-    },
-  },
-];
+}));
 
 function setStageSize() {
   const frame = outputFrameInput.value;
@@ -217,6 +141,15 @@ function setStatus(message) {
   statusEl.textContent = message;
 }
 
+function applyTemplateDefaults(index) {
+  const slot = templates[index]?.personSlot;
+  if (!slot?.shape) return;
+  const hasShape = Array.from(maskStyleInput.options).some((option) => option.value === slot.shape);
+  if (hasShape) {
+    maskStyleInput.value = slot.shape;
+  }
+}
+
 function roundedRect(ctx, x, y, w, h, r) {
   const width = Math.max(0, w);
   const height = Math.max(0, h);
@@ -230,7 +163,8 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function drawHorseYearPoster(ctx, w, h, t, power) {
+function drawHorseYearPoster(ctx, w, h, t, power, config = {}) {
+  const copy = config.copy || {};
   const g = ctx.createLinearGradient(0, 0, 0, h);
   g.addColorStop(0, "#8f090b");
   g.addColorStop(0.38, "#d11118");
@@ -243,11 +177,11 @@ function drawHorseYearPoster(ctx, w, h, t, power) {
   drawGiantLanternBand(ctx, w, h, t, power);
   drawPosterYear(ctx, w, h);
   drawVerticalGreeting(ctx, w, h);
-  drawPosterEnglishRibbon(ctx, w, h, "HAPPY SPRING FESTIVAL", "2026 YEAR OF THE HORSE");
+  drawPosterEnglishRibbon(ctx, w, h, copy.titleEn || "HAPPY SPRING FESTIVAL", copy.subtitleEn || "2026 YEAR OF THE HORSE");
   drawPosterGlow(ctx, w, h);
   drawHorseHerd(ctx, w, h, t, power);
   drawGoldBlessing(ctx, w, h);
-  drawSeal(ctx, w * 0.17, h * 0.56, Math.min(w, h) * 0.12, "福");
+  drawSeal(ctx, w * 0.17, h * 0.56, Math.min(w, h) * 0.12, copy.seal || "福");
 }
 
 function drawPosterRays(ctx, w, h, t) {
@@ -589,7 +523,8 @@ function drawIngot(ctx, x, y, s, rotate) {
   ctx.restore();
 }
 
-function drawSquareDancePoster(ctx, w, h, t, power) {
+function drawSquareDancePoster(ctx, w, h, t, power, config = {}) {
+  const copy = config.copy || {};
   const g = ctx.createLinearGradient(0, 0, 0, h);
   g.addColorStop(0, "#101c47");
   g.addColorStop(0.36, "#d41319");
@@ -603,8 +538,16 @@ function drawSquareDancePoster(ctx, w, h, t, power) {
   drawLanternRows(ctx, w, h, t, power);
   drawDiscoSun(ctx, w * 0.5, h * 0.36, Math.min(w, h) * 0.22, t);
   drawDancerCrowd(ctx, w, h, t, power);
-  drawSceneCaption(ctx, w, h, "广场舞天团", "SQUARE DANCE CREW", "跟上节奏 好运翻倍", "MOVE TOGETHER, LUCK FOREVER");
-  drawSeal(ctx, w * 0.84, h * 0.18, Math.min(w, h) * 0.11, "舞");
+  drawSceneCaption(
+    ctx,
+    w,
+    h,
+    copy.titleZh || "广场舞天团",
+    copy.titleEn || "SQUARE DANCE CREW",
+    copy.subtitleZh || "跟上节奏 好运翻倍",
+    copy.subtitleEn || "MOVE TOGETHER, LUCK FOREVER",
+  );
+  drawSeal(ctx, w * 0.84, h * 0.18, Math.min(w, h) * 0.11, copy.seal || "舞");
 }
 
 function drawSquareTiles(ctx, w, h) {
@@ -704,7 +647,8 @@ function drawDancer(ctx, x, y, s, shirt, pants, side, t, power) {
   ctx.restore();
 }
 
-function drawBellyParkPoster(ctx, w, h, t, power) {
+function drawBellyParkPoster(ctx, w, h, t, power, config = {}) {
+  const copy = config.copy || {};
   const sky = ctx.createLinearGradient(0, 0, 0, h);
   sky.addColorStop(0, "#7fd3ff");
   sky.addColorStop(0.52, "#77c35a");
@@ -716,8 +660,16 @@ function drawBellyParkPoster(ctx, w, h, t, power) {
   drawParkTrees(ctx, w, h, t);
   drawParkPath(ctx, w, h);
   drawBellyUncles(ctx, w, h, t, power);
-  drawSceneCaption(ctx, w, h, "公园纳凉局", "PARK COOLING CLUB", "背心卷起 才是夏天", "SUMMER STYLE, LOCAL LEGEND");
-  drawSeal(ctx, w * 0.16, h * 0.19, Math.min(w, h) * 0.11, "凉");
+  drawSceneCaption(
+    ctx,
+    w,
+    h,
+    copy.titleZh || "公园纳凉局",
+    copy.titleEn || "PARK COOLING CLUB",
+    copy.subtitleZh || "背心卷起 才是夏天",
+    copy.subtitleEn || "SUMMER STYLE, LOCAL LEGEND",
+  );
+  drawSeal(ctx, w * 0.16, h * 0.19, Math.min(w, h) * 0.11, copy.seal || "凉");
 }
 
 function drawParkTrees(ctx, w, h, t) {
@@ -1263,19 +1215,23 @@ function drawPortraitMask(maskCtx, x, y, boxW, boxH, style, feather) {
 function drawCameraLayer(ctx) {
   const ready = camera.readyState >= 2 && camera.videoWidth && camera.videoHeight;
   const size = Number(portraitSizeInput.value) / 100;
-  const style = maskStyleInput.value;
+  const slot = templates[currentTemplate]?.personSlot || {};
+  const style = maskStyleInput.value || slot.shape || "oval";
+  const slotScale = slot.scale || 1;
   const vertical = H > W;
-  let boxW = W * (vertical ? 0.58 : 0.38) * size;
-  let boxH = H * (vertical ? 0.43 : 0.74) * size;
+  let boxW = W * (vertical ? 0.58 : 0.38) * size * slotScale;
+  let boxH = H * (vertical ? 0.43 : 0.74) * size * slotScale;
   if (style === "full") {
-    boxW = W * (vertical ? 0.72 : 0.64) * size;
-    boxH = H * (vertical ? 0.48 : 0.72) * size;
+    boxW = W * (vertical ? 0.72 : 0.64) * size * slotScale;
+    boxH = H * (vertical ? 0.48 : 0.72) * size * slotScale;
   }
   if (style === "circle") {
-    boxW = boxH = Math.min(W, H) * 0.62 * size;
+    boxW = boxH = Math.min(W, H) * 0.62 * size * slotScale;
   }
-  const x = (W - boxW) / 2;
-  const y = H * (vertical ? 0.42 : 0.54) - boxH / 2;
+  const centerX = W * (slot.x || 0.5);
+  const centerY = H * (slot.y || (vertical ? 0.42 : 0.54));
+  const x = centerX - boxW / 2;
+  const y = centerY - boxH / 2;
   const feather = Math.max(12, Math.min(W, H) * 0.028);
 
   ctx.save();
@@ -1426,6 +1382,7 @@ function renderTemplateButtons() {
     button.append(preview, label);
     button.addEventListener("click", () => {
       currentTemplate = index;
+      applyTemplateDefaults(index);
       renderTemplateButtons();
     });
     template.draw(preview.getContext("2d"), preview.width, preview.height, 0, 0.72);
@@ -1531,5 +1488,6 @@ outputFrameInput.addEventListener("change", () => {
 });
 
 setStageSize();
+applyTemplateDefaults(currentTemplate);
 renderTemplateButtons();
 render();
