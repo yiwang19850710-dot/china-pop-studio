@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>China Pop Studio</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="media-upload.css" />
   </head>
   <body>
     <main class="app-shell">
@@ -42,6 +43,15 @@
           </button>
 
           <div class="manager-panel" id="templateManagerPanel" hidden>
+            <div class="media-generator">
+              <label>
+                Upload template image/video
+                <input id="managerMediaUpload" accept="image/*,video/*" type="file" />
+              </label>
+              <button id="managerGenerateFromMedia" type="button">Generate template</button>
+              <p id="managerMediaStatus">Upload a China-scene image or short video, then generate a draft template.</p>
+            </div>
+
             <label>
               Editing template
               <select id="managerTemplate"></select>
@@ -178,5 +188,6 @@
     <script src="templates.js"></script>
     <script src="app.js"></script>
     <script src="admin.js"></script>
+    <script src="media-upload.js"></script>
   </body>
 </html>
