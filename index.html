@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>China Pop Studio</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="studio">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Photo and video booth</p>
+            <h1>China Pop Studio</h1>
+          </div>
+          <div class="status" id="status">Camera is off</div>
+        </header>
+
+        <div class="stage-wrap">
+          <canvas id="stage" width="720" height="1280" aria-label="Camera preview"></canvas>
+          <video id="camera" playsinline muted></video>
+        </div>
+
+        <div class="action-row">
+          <button class="primary" id="startCamera" type="button">Start camera</button>
+          <button id="capturePhoto" type="button" disabled>Capture photo</button>
+          <button id="recordVideo" type="button" disabled>Record video</button>
+          <a class="download" id="downloadLink" hidden>Download</a>
+        </div>
+      </section>
+
+      <aside class="controls" aria-label="Studio controls">
+        <section>
+          <h2>Templates</h2>
+          <div class="template-grid" id="templates"></div>
+        </section>
+
+        <section class="panel-grid">
+          <label>
+            Output frame
+            <select id="outputFrame">
+              <option value="story">Story 9:16</option>
+              <option value="wide">Wide 16:9</option>
+            </select>
+          </label>
+
+          <label>
+            Portrait shape
+            <select id="maskStyle">
+              <option value="oval">Oval portrait</option>
+              <option value="circle">Round badge</option>
+              <option value="arch">Palace arch</option>
+              <option value="full">Full camera layer</option>
+            </select>
+          </label>
+
+          <label>
+            Record length
+            <select id="recordLength">
+              <option value="5">5 seconds</option>
+              <option value="10">10 seconds</option>
+              <option value="15">15 seconds</option>
+            </select>
+          </label>
+
+          <label>
+            Portrait size
+            <input id="portraitSize" min="55" max="105" value="78" type="range" />
+          </label>
+
+          <label>
+            Foreground intensity
+            <input id="fxIntensity" min="0" max="100" value="72" type="range" />
+          </label>
+        </section>
+
+        <section class="toggles">
+          <label><input id="mirrorToggle" type="checkbox" checked /> Mirror camera</label>
+          <label><input id="countdownToggle" type="checkbox" checked /> Countdown</label>
+        </section>
+
+        <section class="output-panel" id="outputPanel" hidden>
+          <h2>Latest output</h2>
+          <img id="photoPreview" alt="Latest captured photo" hidden />
+          <video id="videoPreview" controls hidden></video>
+        </section>
+      </aside>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
