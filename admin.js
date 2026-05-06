@@ -1,4 +1,14 @@
 (() => {
+  const adminSection = document.querySelector("#templateAdmin");
+  const params = new URLSearchParams(window.location.search);
+  const isAdminMode = params.get("admin") === "1" || window.location.hash === "#admin";
+
+  if (!isAdminMode) {
+    adminSection?.setAttribute("hidden", "");
+    return;
+  }
+
+  if (adminSection) adminSection.hidden = false;
   if (window.CHINA_POP_APP_HAS_BUILTIN_MANAGER) return;
 
   const STORAGE_KEY = "china-pop-template-drafts-v1";
