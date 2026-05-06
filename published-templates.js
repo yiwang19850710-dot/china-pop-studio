@@ -16,7 +16,7 @@
       media: {
         kind: "video",
         name: "Il famoso xi jinping.mp4",
-        src: "assets/templates/il-famoso-xi-jinping.mp4",
+        src: "assets/templates/Il famoso xi jinping.mp4",
         transient: false,
       },
       personSlot: {
