@@ -25,6 +25,10 @@
 
         <div class="action-row">
           <button class="primary" id="startCamera" type="button">Start camera</button>
+          <label class="inline-toggle">
+            <input id="cutoutToggle" type="checkbox" />
+            Cut out background
+          </label>
           <button id="capturePhoto" type="button" disabled>Capture photo</button>
           <button id="recordVideo" type="button" disabled>Record video</button>
           <a class="download" id="downloadLink" hidden>Download</a>
@@ -173,7 +177,6 @@
         </section>
 
         <section class="toggles">
-          <label><input id="cutoutToggle" type="checkbox" /> Cut out background</label>
           <label><input id="mirrorToggle" type="checkbox" checked /> Mirror camera</label>
           <label><input id="countdownToggle" type="checkbox" checked /> Countdown</label>
         </section>
@@ -188,7 +191,7 @@
 
     <script src="templates.js"></script>
     <script src="app.js"></script>
-    <script src="portrait-segmentation.js?v=1"></script>
+    <script src="portrait-segmentation.js?v=2"></script>
     <script src="published-templates.js?v=1"></script>
     <script src="admin.js"></script>
     <script src="media-upload.js?v=3"></script>
