@@ -149,6 +149,21 @@ h2 {
   gap: 10px;
 }
 
+.inline-toggle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  gap: 9px;
+  border: 1px solid rgba(91, 191, 145, 0.58);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: rgba(91, 191, 145, 0.13);
+  font-size: 0.84rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 button,
 .download {
   min-height: 42px;
@@ -261,6 +276,22 @@ input[type="range"] {
   accent-color: var(--accent);
 }
 
+input[type="file"] {
+  width: 100%;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+input[type="file"]::file-selector-button {
+  min-height: 34px;
+  margin-right: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .toggles {
   display: grid;
   gap: 12px;
@@ -299,6 +330,26 @@ input[type="range"] {
   margin-top: 12px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
+}
+
+.media-generator {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(91, 191, 145, 0.34);
+  border-radius: 8px;
+  background: rgba(91, 191, 145, 0.08);
+}
+
+.media-generator button {
+  border-color: rgba(91, 191, 145, 0.62);
+}
+
+.media-generator p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .manager-sliders {
