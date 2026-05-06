@@ -30,6 +30,7 @@ body {
 button,
 select,
 input,
+textarea,
 a {
   font: inherit;
 }
@@ -226,17 +227,30 @@ label {
 }
 
 select,
+input[type="text"],
+textarea,
 input[type="range"] {
   width: 100%;
 }
 
-select {
+select,
+input[type="text"],
+textarea {
   min-height: 40px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0 10px;
   color: var(--ink);
   background: #151b22;
+}
+
+textarea {
+  min-height: 142px;
+  padding: 10px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 input[type="range"] {
@@ -260,6 +274,45 @@ input[type="range"] {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #05080a;
+}
+
+.manager-toggle {
+  width: 100%;
+  justify-content: center;
+  border-color: rgba(91, 191, 145, 0.62);
+  color: #06120e;
+  background: linear-gradient(180deg, #8ee7bd, #48b884);
+  font-weight: 800;
+}
+
+.manager-panel {
+  display: grid;
+  gap: 13px;
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.manager-sliders {
+  display: grid;
+  gap: 12px;
+}
+
+.manager-sliders label span {
+  float: right;
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.manager-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.manager-actions button {
+  min-width: 0;
+  padding-inline: 10px;
 }
 
 @media (max-width: 980px) {
