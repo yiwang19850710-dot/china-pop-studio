@@ -36,6 +36,93 @@
           <div class="template-grid" id="templates"></div>
         </section>
 
+        <section class="template-admin">
+          <button class="manager-toggle" id="templateManagerToggle" type="button">
+            Template manager / 模板管理
+          </button>
+
+          <div class="manager-panel" id="templateManagerPanel" hidden>
+            <label>
+              Editing template
+              <select id="managerTemplate"></select>
+            </label>
+
+            <label>
+              Template name
+              <input id="managerName" type="text" />
+            </label>
+
+            <label>
+              Category
+              <input id="managerCategory" type="text" />
+            </label>
+
+            <label>
+              Chinese headline
+              <input id="managerTitleZh" type="text" />
+            </label>
+
+            <label>
+              English headline
+              <input id="managerTitleEn" type="text" />
+            </label>
+
+            <label>
+              Chinese subtitle
+              <input id="managerSubZh" type="text" />
+            </label>
+
+            <label>
+              English subtitle
+              <input id="managerSubEn" type="text" />
+            </label>
+
+            <label>
+              Seal character
+              <input id="managerSeal" maxlength="2" type="text" />
+            </label>
+
+            <div class="manager-sliders">
+              <label>
+                Person X <span id="managerSlotXValue">50%</span>
+                <input id="managerSlotX" min="20" max="80" type="range" />
+              </label>
+
+              <label>
+                Person Y <span id="managerSlotYValue">44%</span>
+                <input id="managerSlotY" min="20" max="78" type="range" />
+              </label>
+
+              <label>
+                Person scale <span id="managerSlotScaleValue">76%</span>
+                <input id="managerSlotScale" min="50" max="105" type="range" />
+              </label>
+            </div>
+
+            <label>
+              Person shape
+              <select id="managerSlotShape">
+                <option value="oval">Oval portrait</option>
+                <option value="circle">Round badge</option>
+                <option value="arch">Palace arch</option>
+                <option value="full">Full camera layer</option>
+              </select>
+            </label>
+
+            <div class="manager-actions">
+              <button id="managerApply" type="button">Apply</button>
+              <button id="managerReset" type="button">Reset</button>
+              <button id="managerExport" type="button">Export JSON</button>
+              <button id="managerImport" type="button">Import JSON</button>
+            </div>
+
+            <label>
+              Template JSON
+              <textarea id="managerJson" spellcheck="false"></textarea>
+            </label>
+          </div>
+        </section>
+
         <section class="panel-grid">
           <label>
             Output frame
@@ -90,5 +177,6 @@
 
     <script src="templates.js"></script>
     <script src="app.js"></script>
+    <script src="admin.js"></script>
   </body>
 </html>
