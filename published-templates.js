@@ -145,10 +145,24 @@
     };
   }
 
+  function upsertRuntimeTemplate(config) {
+    const runtime = makeRuntimeTemplate(config);
+    const index = templates.findIndex((template) => template.id === config.id);
+    if (index >= 0) Object.assign(templates[index], runtime);
+    else templates.push(runtime);
+
+    if (window.CHINA_POP_TEMPLATE_CONFIGS) {
+      const clean = JSON.parse(JSON.stringify(config));
+      const configIndex = window.CHINA_POP_TEMPLATE_CONFIGS.findIndex((item) => item.id === config.id);
+      if (configIndex >= 0) window.CHINA_POP_TEMPLATE_CONFIGS[configIndex] = clean;
+      else window.CHINA_POP_TEMPLATE_CONFIGS.push(clean);
+    }
+  }
+
   function mediaCanLoad(config) {
     return new Promise((resolve) => {
       if (!config.media?.src) {
-        resolve(false);
+        resolve(true);
         return;
       }
       if (config.media.kind === "video") {
@@ -177,11 +191,9 @@
   async function addPublishedTemplates() {
     if (!installRenderer() || typeof templates === "undefined") return;
     for (const config of publishedTemplates) {
-      if (templates.some((template) => template.id === config.id)) continue;
       const canLoad = await mediaCanLoad(config);
       if (!canLoad) continue;
-      window.CHINA_POP_TEMPLATE_CONFIGS?.push(config);
-      templates.push(makeRuntimeTemplate(config));
+      upsertRuntimeTemplate(config);
     }
     if (typeof renderTemplateButtons === "function") renderTemplateButtons();
   }
