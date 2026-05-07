@@ -15,6 +15,7 @@
   let albumSegmentationJob = null;
   let albumSegmentationResolver = null;
   let albumCutoutFailed = false;
+  let portraitDrag = null;
   const albumMaskCanvas = document.createElement("canvas");
   const albumMaskCtx = albumMaskCanvas.getContext("2d", { willReadFrequently: true });
   const cdnBases = [
@@ -243,6 +244,108 @@
     };
   }
 
+  function updateDragAffordance(enabled) {
+    stage.classList.toggle("portrait-drag-ready", Boolean(enabled));
+  }
+
+  function getCanvasPoint(event) {
+    const rect = stage.getBoundingClientRect();
+    return {
+      x: (event.clientX - rect.left) * W / rect.width,
+      y: (event.clientY - rect.top) * H / rect.height,
+    };
+  }
+
+  function pointHitsFrame(point, frame) {
+    const margin = Math.max(28, Math.min(W, H) * 0.035);
+    return (
+      point.x >= frame.x - margin &&
+      point.x <= frame.x + frame.boxW + margin &&
+      point.y >= frame.y - margin &&
+      point.y <= frame.y + frame.boxH + margin
+    );
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function canDragPortrait() {
+    if (albumPhoto) return sourceIsReady(albumPhoto);
+    return sourceIsReady(camera);
+  }
+
+  function syncManagerSlotControls(slot) {
+    try {
+      if (
+        typeof managerSlotXInput === "undefined" ||
+        typeof managerSlotYInput === "undefined" ||
+        !managerSlotXInput ||
+        !managerSlotYInput
+      ) {
+        return;
+      }
+      const x = Math.round(slot.x * 100);
+      const y = Math.round(slot.y * 100);
+      managerSlotXInput.value = x;
+      managerSlotYInput.value = y;
+      if (typeof managerSlotXValue !== "undefined" && managerSlotXValue) managerSlotXValue.textContent = `${x}%`;
+      if (typeof managerSlotYValue !== "undefined" && managerSlotYValue) managerSlotYValue.textContent = `${y}%`;
+    } catch (error) {
+      console.warn("Could not sync dragged portrait position.", error);
+    }
+  }
+
+  function installPortraitDrag() {
+    if (!stage || stage.dataset.portraitDragInstalled) return;
+    stage.dataset.portraitDragInstalled = "true";
+
+    stage.addEventListener("pointerdown", (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      if (!canDragPortrait()) return;
+      const frame = getFrameBox();
+      const point = getCanvasPoint(event);
+      if (!pointHitsFrame(point, frame)) return;
+
+      portraitDrag = {
+        pointerId: event.pointerId,
+        offsetX: point.x - (frame.x + frame.boxW / 2),
+        offsetY: point.y - (frame.y + frame.boxH / 2),
+      };
+      stage.classList.add("portrait-dragging");
+      stage.setPointerCapture?.(event.pointerId);
+      setAppStatus("Move portrait");
+      event.preventDefault();
+    });
+
+    stage.addEventListener("pointermove", (event) => {
+      if (!portraitDrag || event.pointerId !== portraitDrag.pointerId) return;
+      const template = templates[currentTemplate];
+      if (!template) return;
+      const point = getCanvasPoint(event);
+      const nextSlot = {
+        ...(template.personSlot || {}),
+        x: clamp((point.x - portraitDrag.offsetX) / W, 0.04, 0.96),
+        y: clamp((point.y - portraitDrag.offsetY) / H, 0.04, 0.96),
+      };
+      template.personSlot = nextSlot;
+      syncManagerSlotControls(nextSlot);
+      event.preventDefault();
+    });
+
+    function finishDrag(event) {
+      if (!portraitDrag || event.pointerId !== portraitDrag.pointerId) return;
+      portraitDrag = null;
+      stage.classList.remove("portrait-dragging");
+      stage.releasePointerCapture?.(event.pointerId);
+      setAppStatus(albumPhoto ? "Phone photo ready" : "Camera is live");
+      event.preventDefault();
+    }
+
+    stage.addEventListener("pointerup", finishDrag);
+    stage.addEventListener("pointercancel", finishDrag);
+  }
+
   function sourceIsReady(source) {
     if (!source) return false;
     if (source === camera) return camera.readyState >= 2 && camera.videoWidth && camera.videoHeight;
@@ -282,6 +385,7 @@
 
   function drawCleanCameraLayer(stageCtx, source) {
     const ready = sourceIsReady(source);
+    updateDragAffordance(ready);
     const { style, boxW, boxH, x, y, feather } = getFrameBox();
 
     syncCanvasSize(portraitLayer, portraitLayerCtx, W, H);
@@ -357,10 +461,12 @@
 
   function drawAlbumCutoutLayer(stageCtx) {
     if (!albumPhoto || !sourceIsReady(albumPhoto)) {
+      updateDragAffordance(false);
       drawCleanCameraLayer(stageCtx, albumPhoto);
       return;
     }
 
+    updateDragAffordance(true);
     const { style, boxW, boxH, x, y } = getFrameBox();
     const crop = getCoverCrop(albumPhoto, boxW, boxH);
 
@@ -399,6 +505,7 @@
         return;
       }
       if (cutoutToggle?.checked) {
+        updateDragAffordance(sourceIsReady(camera));
         previousDrawCameraLayer(stageCtx);
         return;
       }
@@ -449,6 +556,7 @@
 
   createAlbumControl();
   installCleanCameraOverride();
+  installPortraitDrag();
   installMobileTemplateChooser();
   window.CHINA_POP_STUDIO_UPGRADES = {
     hasAlbumPhoto: () => Boolean(albumPhoto),
