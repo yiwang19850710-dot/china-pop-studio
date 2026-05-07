@@ -16,6 +16,7 @@
   let recordStopTimer = null;
   let recordTickTimer = null;
   let recordingEndsAt = 0;
+  let lastObjectUrl = "";
 
   if (!stageEl || !captureBtn || !recordBtn) return;
 
@@ -60,20 +61,23 @@
     try {
       downloadEl.hidden = false;
       downloadEl.click();
-      downloadEl.hidden = true;
     } catch (error) {
       downloadEl.hidden = false;
       console.warn("Automatic download was blocked.", error);
     }
   }
 
-  function prepareAutoDownload(blob, filename) {
+  function prepareAutoDownload(blob, filename, label) {
+    if (lastObjectUrl) URL.revokeObjectURL(lastObjectUrl);
     const url = URL.createObjectURL(blob);
+    lastObjectUrl = url;
     if (downloadEl) {
       downloadEl.href = url;
       downloadEl.download = filename;
-      downloadEl.textContent = "Download again";
-      downloadEl.hidden = true;
+      downloadEl.target = "_blank";
+      downloadEl.rel = "noopener";
+      downloadEl.textContent = label;
+      downloadEl.hidden = false;
       clickDownloadLink();
     }
     return url;
@@ -138,14 +142,14 @@
         unlockActionButtons();
         return;
       }
-      const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.jpg`);
+      const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.jpg`, "Save photo / 保存照片");
       if (photoPreviewEl) {
         photoPreviewEl.src = url;
         photoPreviewEl.hidden = false;
       }
       if (videoPreviewEl) videoPreviewEl.hidden = true;
       if (outputPanelEl) outputPanelEl.hidden = false;
-      setAppStatus("Photo saved");
+      setAppStatus("Photo ready");
       unlockActionButtons();
     }, "image/jpeg", 0.9);
   }
@@ -179,8 +183,15 @@
       };
       activeRecorder.onstop = () => {
         stopRecordingUi();
+        setAppStatus("Preparing video");
+        if (!activeChunks.length) {
+          activeRecorder = null;
+          unlockActionButtons();
+          setAppStatus("Video failed, please record again");
+          return;
+        }
         const blob = new Blob(activeChunks, { type: "video/webm" });
-        const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.webm`);
+        const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.webm`, "Save video / 保存视频");
         if (videoPreviewEl) {
           videoPreviewEl.src = url;
           videoPreviewEl.hidden = false;
@@ -189,7 +200,7 @@
         if (outputPanelEl) outputPanelEl.hidden = false;
         activeRecorder = null;
         unlockActionButtons();
-        setAppStatus("Video saved");
+        setAppStatus("Video ready");
       };
 
       activeRecorder.start(500);
