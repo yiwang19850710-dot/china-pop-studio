@@ -71,6 +71,21 @@
     return formats.find((format) => MediaRecorder.isTypeSupported(format.mimeType)) || formats[formats.length - 1];
   }
 
+  function getShareMimeType(filename, blob) {
+    if (filename.endsWith(".mp4")) return "video/mp4";
+    if (filename.endsWith(".webm")) return "video/webm";
+    if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
+    return blob.type || "application/octet-stream";
+  }
+
+  function showSaveFallback(message) {
+    if (downloadEl?.href) {
+      downloadEl.hidden = false;
+      downloadEl.textContent = lastShareFile?.type?.startsWith("video/") ? "Save video" : "Save photo";
+    }
+    setAppStatus(message);
+  }
+
   function ensureShareButton() {
     if (shareButtonEl || !actionRowEl) return shareButtonEl;
     shareButtonEl = document.createElement("button");
@@ -80,16 +95,32 @@
     shareButtonEl.textContent = "Share";
     downloadEl?.after(shareButtonEl);
     shareButtonEl.addEventListener("click", async () => {
-      if (!lastShareFile || !navigator.share) return;
+      if (!lastShareFile) {
+        showSaveFallback("Record a video first");
+        return;
+      }
+      if (!navigator.share) {
+        showSaveFallback("Share unavailable. Use Save video.");
+        return;
+      }
+      const originalText = shareButtonEl.textContent;
+      shareButtonEl.disabled = true;
+      shareButtonEl.textContent = "Opening share...";
+      setAppStatus("Opening share");
       try {
-        await navigator.share({
-          files: [lastShareFile],
-          title: "China Pop Studio",
-          text: "Made with China Pop Studio",
-        });
+        const shareData = { files: [lastShareFile] };
+        if (navigator.canShare && !navigator.canShare(shareData)) {
+          throw new Error("File sharing is not supported by this browser.");
+        }
+        await navigator.share(shareData);
         setAppStatus("Share opened");
       } catch (error) {
-        setAppStatus("Share cancelled");
+        console.warn("Could not open share sheet.", error);
+        const cancelled = error?.name === "AbortError" || error?.name === "NotAllowedError";
+        showSaveFallback(cancelled ? "Share cancelled. Use Save video." : "Share unavailable. Use Save video.");
+      } finally {
+        shareButtonEl.disabled = false;
+        shareButtonEl.textContent = originalText;
       }
     });
     return shareButtonEl;
@@ -98,8 +129,8 @@
   function updateShareButton(blob, filename, label) {
     const button = ensureShareButton();
     if (!button || typeof File === "undefined") return;
-    lastShareFile = new File([blob], filename, { type: blob.type || "application/octet-stream" });
-    const canShare = Boolean(navigator.share && (!navigator.canShare || navigator.canShare({ files: [lastShareFile] })));
+    lastShareFile = new File([blob], filename, { type: getShareMimeType(filename, blob) });
+    const canShare = Boolean(navigator.share);
     button.textContent = label;
     button.hidden = !canShare;
   }
@@ -238,7 +269,8 @@
         const blobType = activeRecorder.mimeType || format.mimeType;
         const extension = blobType.includes("mp4") ? "mp4" : format.extension;
         const formatLabel = blobType.includes("mp4") ? "MP4" : format.label;
-        const blob = new Blob(activeChunks, { type: blobType });
+        const publicBlobType = extension === "mp4" ? "video/mp4" : "video/webm";
+        const blob = new Blob(activeChunks, { type: publicBlobType });
         const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.${extension}`, "Save video");
         if (videoPreviewEl) {
           videoPreviewEl.src = url;
