@@ -45,6 +45,16 @@
     return Promise.resolve();
   }
 
+  function waitForAnimationFrame() {
+    return new Promise((resolve) => requestAnimationFrame(resolve));
+  }
+
+  async function waitForCleanPreviewFrame() {
+    await waitForAppCountdown();
+    await waitForAnimationFrame();
+    await waitForAnimationFrame();
+  }
+
   function clickDownloadLink() {
     if (!downloadEl?.href) return;
     try {
@@ -122,7 +132,7 @@
     if (captureBtn.disabled) return;
     captureBtn.disabled = true;
     recordBtn.disabled = true;
-    await waitForAppCountdown();
+    await waitForCleanPreviewFrame();
     stageEl.toBlob((blob) => {
       if (!blob) {
         unlockActionButtons();
@@ -149,7 +159,7 @@
 
     recordBtn.disabled = true;
     captureBtn.disabled = true;
-    await waitForAppCountdown();
+    await waitForCleanPreviewFrame();
 
     try {
       activeChunks = [];
