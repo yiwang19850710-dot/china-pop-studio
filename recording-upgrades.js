@@ -4,6 +4,7 @@
   const captureBtn = document.querySelector("#capturePhoto");
   const recordBtn = document.querySelector("#recordVideo");
   const downloadEl = document.querySelector("#downloadLink");
+  const actionRowEl = document.querySelector(".action-row");
   const outputPanelEl = document.querySelector("#outputPanel");
   const photoPreviewEl = document.querySelector("#photoPreview");
   const videoPreviewEl = document.querySelector("#videoPreview");
@@ -17,6 +18,8 @@
   let recordTickTimer = null;
   let recordingEndsAt = 0;
   let lastObjectUrl = "";
+  let shareButtonEl = null;
+  let lastShareFile = null;
 
   if (!stageEl || !captureBtn || !recordBtn) return;
 
@@ -56,6 +59,51 @@
     await waitForAnimationFrame();
   }
 
+  function getSupportedRecordingFormat() {
+    const formats = [
+      { mimeType: "video/mp4;codecs=avc1.42E01E,mp4a.40.2", extension: "mp4", label: "MP4" },
+      { mimeType: "video/mp4;codecs=avc1.42E01E", extension: "mp4", label: "MP4" },
+      { mimeType: "video/mp4", extension: "mp4", label: "MP4" },
+      { mimeType: "video/webm;codecs=vp8,opus", extension: "webm", label: "WebM" },
+      { mimeType: "video/webm;codecs=vp8", extension: "webm", label: "WebM" },
+      { mimeType: "video/webm", extension: "webm", label: "WebM" },
+    ];
+    return formats.find((format) => MediaRecorder.isTypeSupported(format.mimeType)) || formats[formats.length - 1];
+  }
+
+  function ensureShareButton() {
+    if (shareButtonEl || !actionRowEl) return shareButtonEl;
+    shareButtonEl = document.createElement("button");
+    shareButtonEl.id = "shareOutput";
+    shareButtonEl.type = "button";
+    shareButtonEl.hidden = true;
+    shareButtonEl.textContent = "Share";
+    downloadEl?.after(shareButtonEl);
+    shareButtonEl.addEventListener("click", async () => {
+      if (!lastShareFile || !navigator.share) return;
+      try {
+        await navigator.share({
+          files: [lastShareFile],
+          title: "China Pop Studio",
+          text: "Made with China Pop Studio",
+        });
+        setAppStatus("Share opened");
+      } catch (error) {
+        setAppStatus("Share cancelled");
+      }
+    });
+    return shareButtonEl;
+  }
+
+  function updateShareButton(blob, filename, label) {
+    const button = ensureShareButton();
+    if (!button || typeof File === "undefined") return;
+    lastShareFile = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+    const canShare = Boolean(navigator.share && (!navigator.canShare || navigator.canShare({ files: [lastShareFile] })));
+    button.textContent = label;
+    button.hidden = !canShare;
+  }
+
   function clickDownloadLink() {
     if (!downloadEl?.href) return;
     try {
@@ -71,6 +119,7 @@
     if (lastObjectUrl) URL.revokeObjectURL(lastObjectUrl);
     const url = URL.createObjectURL(blob);
     lastObjectUrl = url;
+    updateShareButton(blob, filename, label.replace("Save", "Share"));
     if (downloadEl) {
       downloadEl.href = url;
       downloadEl.download = filename;
@@ -142,7 +191,7 @@
         unlockActionButtons();
         return;
       }
-      const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.jpg`, "Save photo / 保存照片");
+      const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.jpg`, "Save photo");
       if (photoPreviewEl) {
         photoPreviewEl.src = url;
         photoPreviewEl.hidden = false;
@@ -168,16 +217,12 @@
     try {
       activeChunks = [];
       const seconds = Number(recordLengthEl?.value || 5);
+      const format = getSupportedRecordingFormat();
       const canvasStream = stageEl.captureStream(30);
       const audioTrack = cameraEl?.srcObject?.getAudioTracks?.()[0];
       if (audioTrack) canvasStream.addTrack(audioTrack);
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
-        ? "video/webm;codecs=vp8,opus"
-        : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-          ? "video/webm;codecs=vp8"
-          : "video/webm";
 
-      activeRecorder = new MediaRecorder(canvasStream, { mimeType });
+      activeRecorder = new MediaRecorder(canvasStream, { mimeType: format.mimeType });
       activeRecorder.ondataavailable = (event) => {
         if (event.data.size) activeChunks.push(event.data);
       };
@@ -190,8 +235,11 @@
           setAppStatus("Video failed, please record again");
           return;
         }
-        const blob = new Blob(activeChunks, { type: "video/webm" });
-        const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.webm`, "Save video / 保存视频");
+        const blobType = activeRecorder.mimeType || format.mimeType;
+        const extension = blobType.includes("mp4") ? "mp4" : format.extension;
+        const formatLabel = blobType.includes("mp4") ? "MP4" : format.label;
+        const blob = new Blob(activeChunks, { type: blobType });
+        const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.${extension}`, "Save video");
         if (videoPreviewEl) {
           videoPreviewEl.src = url;
           videoPreviewEl.hidden = false;
@@ -200,7 +248,7 @@
         if (outputPanelEl) outputPanelEl.hidden = false;
         activeRecorder = null;
         unlockActionButtons();
-        setAppStatus("Video ready");
+        setAppStatus(`Video ready (${formatLabel})`);
       };
 
       activeRecorder.start(500);
