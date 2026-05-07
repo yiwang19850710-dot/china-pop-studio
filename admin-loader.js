@@ -38,7 +38,7 @@
       await loadScript("admin.js?v=2");
       await loadScript("media-upload.js?v=4");
       await loadScript("admin-fixes.js?v=4");
-      await loadScript("admin-workflow.js?v=2");
+      await loadScript("admin-workflow.js?v=3");
     } catch (error) {
       console.warn("Admin tools could not load.", error);
       const status = document.querySelector("#status");
