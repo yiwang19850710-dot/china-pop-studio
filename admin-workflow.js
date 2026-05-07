@@ -43,22 +43,25 @@
     const row = document.createElement("div");
     row.className = "admin-save-row";
     row.innerHTML = `
-      <button id="adminSaveTemplate" type="button">Save template changes</button>
-      <button id="adminPreviewTemplate" type="button">Show on public preview</button>
-      <p>Upload media, adjust text and camera position, then save. Public one-click publishing will connect to the backend; JSON is only kept as an advanced backup tool.</p>
+      <button id="adminSaveTemplate" type="button">Save draft in this browser / 保存本机草稿</button>
+      <button id="adminPreviewTemplate" type="button">Preview as user / 用户预览</button>
+      <p>Apply or save keeps the template in this browser first. To make it visible to every public user, I still need to publish the saved template to GitHub until we add a real backend.</p>
     `;
     const mediaGenerator = panel.querySelector(".media-generator");
     mediaGenerator?.after(row);
 
     row.querySelector("#adminSaveTemplate")?.addEventListener("click", () => {
       applyButton.click();
-      setAppStatus("Template saved");
+      setAppStatus("Draft saved in this browser");
     });
 
     row.querySelector("#adminPreviewTemplate")?.addEventListener("click", () => {
       applyButton.click();
-      setAppStatus("Template available in this browser");
-      window.history.replaceState(null, "", window.location.pathname);
+      setAppStatus("Opening user preview");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("admin");
+      url.hash = "";
+      window.open(url.toString(), "_blank") || window.location.assign(url.toString());
     });
   }
 
@@ -67,9 +70,12 @@
     if (uploadStatus) {
       uploadStatus.textContent = "Upload a template image or short video. The system will create an editable template automatically.";
     }
-    if (uploadInput) uploadInput.setAttribute("capture", "environment");
+    if (uploadInput) uploadInput.removeAttribute("capture");
     if (resetButton) resetButton.textContent = "Reset current template";
-    applyButton.textContent = "Apply to preview";
+    applyButton.textContent = "Apply + save draft";
+    applyButton.addEventListener("click", () => {
+      window.setTimeout(() => setAppStatus("Draft saved in this browser"), 20);
+    });
   }
 
   polishUploadCopy();
