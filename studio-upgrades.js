@@ -3,8 +3,25 @@
   const cutoutToggle = document.querySelector("#cutoutToggle");
   const captureButton = document.querySelector("#capturePhoto");
   const recordButton = document.querySelector("#recordVideo");
+  const templateGrid = document.querySelector("#templates");
   let albumPhoto = null;
   let albumPhotoName = "";
+  let albumMask = null;
+  let albumMaskWidth = 0;
+  let albumMaskHeight = 0;
+  let albumMaskSourceName = "";
+  let albumSegmenter = null;
+  let albumSegmenterPromise = null;
+  let albumSegmentationJob = null;
+  let albumSegmentationResolver = null;
+  let albumCutoutFailed = false;
+  const albumMaskCanvas = document.createElement("canvas");
+  const albumMaskCtx = albumMaskCanvas.getContext("2d", { willReadFrequently: true });
+  const cdnBases = [
+    "https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation",
+    "https://unpkg.com/@mediapipe/selfie_segmentation",
+  ];
+  let selectedCdnBase = cdnBases[0];
 
   function setAppStatus(message) {
     try {
@@ -21,6 +38,101 @@
       image.onerror = reject;
       image.src = src;
     });
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        resolve();
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Could not load ${src}`));
+      document.head.append(script);
+    });
+  }
+
+  async function ensureAlbumSegmenter() {
+    if (albumSegmenter) return true;
+    if (!albumSegmenterPromise) {
+      albumSegmenterPromise = (async () => {
+        if (typeof SelfieSegmentation === "undefined") {
+          let loaded = false;
+          for (const base of cdnBases) {
+            try {
+              await loadScript(`${base}/selfie_segmentation.js`);
+              selectedCdnBase = base;
+              loaded = true;
+              break;
+            } catch (error) {
+              console.warn("Could not load photo cutout script.", error);
+            }
+          }
+          if (!loaded || typeof SelfieSegmentation === "undefined") return false;
+        }
+        albumSegmenter = new SelfieSegmentation({
+          locateFile: (file) => `${selectedCdnBase}/${file}`,
+        });
+        albumSegmenter.setOptions({
+          modelSelection: 1,
+          selfieMode: false,
+        });
+        albumSegmenter.onResults((results) => {
+          albumMask = results.segmentationMask;
+          albumMaskWidth = results.image?.width || albumPhoto?.naturalWidth || 0;
+          albumMaskHeight = results.image?.height || albumPhoto?.naturalHeight || 0;
+          albumMaskSourceName = albumPhotoName;
+          if (albumSegmentationResolver) {
+            albumSegmentationResolver(true);
+            albumSegmentationResolver = null;
+          }
+        });
+        return true;
+      })();
+    }
+    return albumSegmenterPromise;
+  }
+
+  async function segmentAlbumPhoto() {
+    if (!albumPhoto || !cutoutToggle?.checked) return false;
+    if (albumCutoutFailed) return false;
+    if (albumSegmentationJob) return albumSegmentationJob;
+    albumSegmentationJob = (async () => {
+      try {
+        setAppStatus("Cutting out photo background");
+        const ready = await ensureAlbumSegmenter();
+        if (!ready) {
+          albumCutoutFailed = true;
+          setAppStatus("Photo cutout unavailable");
+          return false;
+        }
+        const result = new Promise((resolve) => {
+          albumSegmentationResolver = resolve;
+          window.setTimeout(() => {
+            if (albumSegmentationResolver) {
+              albumSegmentationResolver(false);
+              albumSegmentationResolver = null;
+            }
+          }, 6000);
+        });
+        await albumSegmenter.send({ image: albumPhoto });
+        const ok = await result;
+        setAppStatus(ok ? "Photo cutout ready" : "Photo cutout failed");
+        return ok;
+      } catch (error) {
+        albumCutoutFailed = true;
+        setAppStatus("Photo cutout unavailable");
+        console.warn("Could not cut out phone photo.", error);
+        return false;
+      } finally {
+        albumSegmentationJob = null;
+      }
+    })();
+    return albumSegmentationJob;
   }
 
   async function makeOptimizedImage(file) {
@@ -46,14 +158,14 @@
 
     const label = document.createElement("label");
     label.className = "inline-toggle album-upload";
-    label.innerHTML = `<input id="albumPhotoInput" accept="image/*" type="file" /> <span>Use phone photo</span>`;
+    label.innerHTML = `<input id="albumPhotoInput" accept="image/*" type="file" /> <span>Choose photo</span>`;
 
     const clearButton = document.createElement("button");
     clearButton.id = "clearAlbumPhoto";
     clearButton.className = "photo-clear-button";
     clearButton.type = "button";
     clearButton.hidden = true;
-    clearButton.textContent = "Clear photo";
+    clearButton.textContent = "Remove photo";
 
     const anchor = cutoutToggle?.closest("label") || actionRow.firstElementChild;
     anchor?.after(label, clearButton);
@@ -67,13 +179,21 @@
         setAppStatus("Loading phone photo");
         albumPhoto = await makeOptimizedImage(file);
         albumPhotoName = file.name;
-        text.textContent = "Photo loaded";
+        albumMask = null;
+        albumMaskSourceName = "";
+        albumCutoutFailed = false;
+        text.textContent = "Change photo";
         clearButton.hidden = false;
         if (captureButton) captureButton.disabled = false;
         if (recordButton) recordButton.disabled = false;
-        setAppStatus("Phone photo ready");
+        if (cutoutToggle?.checked) {
+          segmentAlbumPhoto();
+        } else {
+          setAppStatus("Phone photo ready");
+        }
       } catch (error) {
         albumPhoto = null;
+        albumMask = null;
         setAppStatus("Photo load failed");
         console.warn("Could not load album photo.", error);
       }
@@ -82,10 +202,17 @@
     clearButton.addEventListener("click", () => {
       albumPhoto = null;
       albumPhotoName = "";
+      albumMask = null;
+      albumMaskSourceName = "";
+      albumCutoutFailed = false;
       input.value = "";
-      text.textContent = "Use phone photo";
+      text.textContent = "Choose photo";
       clearButton.hidden = true;
       setAppStatus(camera?.readyState >= 2 ? "Camera is live" : "Camera is off");
+    });
+
+    cutoutToggle?.addEventListener("change", () => {
+      if (cutoutToggle.checked && albumPhoto) segmentAlbumPhoto();
     });
   }
 
@@ -192,11 +319,82 @@
     stageCtx.restore();
   }
 
+  function drawAlbumSegmentationMask(x, y, boxW, boxH, crop) {
+    if (!albumMask || albumMaskSourceName !== albumPhotoName || !albumMaskWidth || !albumMaskHeight) return false;
+
+    syncCanvasSize(albumMaskCanvas, albumMaskCtx, W, H);
+    const sx = crop.sx * albumMaskWidth / albumPhoto.naturalWidth;
+    const sy = crop.sy * albumMaskHeight / albumPhoto.naturalHeight;
+    const sw = crop.sw * albumMaskWidth / albumPhoto.naturalWidth;
+    const sh = crop.sh * albumMaskHeight / albumPhoto.naturalHeight;
+
+    albumMaskCtx.save();
+    albumMaskCtx.filter = "blur(1px)";
+    albumMaskCtx.drawImage(albumMask, sx, sy, sw, sh, x, y, boxW, boxH);
+    albumMaskCtx.restore();
+
+    const left = Math.max(0, Math.floor(x - 2));
+    const top = Math.max(0, Math.floor(y - 2));
+    const right = Math.min(W, Math.ceil(x + boxW + 2));
+    const bottom = Math.min(H, Math.ceil(y + boxH + 2));
+    const width = Math.max(1, right - left);
+    const height = Math.max(1, bottom - top);
+    const image = albumMaskCtx.getImageData(left, top, width, height);
+    const data = image.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const maskValue = data[i];
+      const alpha = Math.max(0, Math.min(1, (maskValue - 132) / 72));
+      data[i] = 255;
+      data[i + 1] = 255;
+      data[i + 2] = 255;
+      data[i + 3] = Math.round(alpha * 255);
+    }
+
+    albumMaskCtx.putImageData(image, left, top);
+    return true;
+  }
+
+  function drawAlbumCutoutLayer(stageCtx) {
+    if (!albumPhoto || !sourceIsReady(albumPhoto)) {
+      drawCleanCameraLayer(stageCtx, albumPhoto);
+      return;
+    }
+
+    const { style, boxW, boxH, x, y } = getFrameBox();
+    const crop = getCoverCrop(albumPhoto, boxW, boxH);
+
+    syncCanvasSize(portraitLayer, portraitLayerCtx, W, H);
+
+    portraitLayerCtx.save();
+    applyPortraitClip(portraitLayerCtx, x, y, boxW, boxH, style);
+    portraitLayerCtx.clip();
+    drawSourceCover(portraitLayerCtx, albumPhoto, x, y, boxW, boxH);
+    portraitLayerCtx.restore();
+
+    if (drawAlbumSegmentationMask(x, y, boxW, boxH, crop)) {
+      portraitLayerCtx.save();
+      portraitLayerCtx.globalCompositeOperation = "destination-in";
+      portraitLayerCtx.drawImage(albumMaskCanvas, 0, 0);
+      portraitLayerCtx.restore();
+    } else {
+      segmentAlbumPhoto();
+    }
+
+    stageCtx.save();
+    stageCtx.drawImage(portraitLayer, 0, 0);
+    stageCtx.restore();
+  }
+
   function installCleanCameraOverride() {
     if (typeof drawCameraLayer !== "function") return;
     const previousDrawCameraLayer = drawCameraLayer;
     drawCameraLayer = (stageCtx) => {
       if (albumPhoto) {
+        if (cutoutToggle?.checked) {
+          drawAlbumCutoutLayer(stageCtx);
+          return;
+        }
         drawCleanCameraLayer(stageCtx, albumPhoto);
         return;
       }
@@ -208,8 +406,50 @@
     };
   }
 
+  function installMobileTemplateChooser() {
+    if (!templateGrid || document.querySelector("#mobileTemplateSelect")) return;
+    const section = templateGrid.closest("section");
+    if (!section) return;
+
+    const chooser = document.createElement("label");
+    chooser.className = "mobile-template-chooser";
+    chooser.innerHTML = `<span>Template</span><select id="mobileTemplateSelect"></select>`;
+    section.insertBefore(chooser, templateGrid);
+
+    const select = chooser.querySelector("select");
+    function syncChooser() {
+      if (typeof templates === "undefined") return;
+      const options = templates.map((template, index) => `<option value="${index}">${template.name}</option>`).join("");
+      if (select.dataset.options !== options) {
+        select.innerHTML = options;
+        select.dataset.options = options;
+      }
+      if (typeof currentTemplate !== "undefined") select.value = String(currentTemplate);
+    }
+
+    select.addEventListener("change", () => {
+      const index = Number(select.value);
+      if (window.CHINA_POP_STUDIO?.selectTemplate) {
+        window.CHINA_POP_STUDIO.selectTemplate(index);
+      }
+      syncChooser();
+    });
+
+    if (typeof renderTemplateButtons === "function") {
+      const previousRenderTemplateButtons = renderTemplateButtons;
+      renderTemplateButtons = (...args) => {
+        const result = previousRenderTemplateButtons(...args);
+        syncChooser();
+        return result;
+      };
+    }
+    window.setTimeout(syncChooser, 0);
+    window.setTimeout(syncChooser, 800);
+  }
+
   createAlbumControl();
   installCleanCameraOverride();
+  installMobileTemplateChooser();
   window.CHINA_POP_STUDIO_UPGRADES = {
     hasAlbumPhoto: () => Boolean(albumPhoto),
     albumPhotoName: () => albumPhotoName,
