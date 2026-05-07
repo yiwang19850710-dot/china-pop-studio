@@ -1,32 +1,66 @@
 (() => {
   const publishedTemplates = [
     {
-      id: "il-famoso-xi-jinping-1778097968668",
-      name: "Test",
-      category: "uploaded",
-      renderer: "uploadedMedia",
-      colors: ["#d91417", "#f2c45a", "#111820"],
-      copy: {
-        titleZh: "",
-        titleEn: "",
-        subtitleZh: "",
-        subtitleEn: "",
-        seal: "",
-      },
-      media: {
-        kind: "video",
-        name: "Il famoso xi jinping.mp4",
-        src: "assets/templates/Il famoso xi jinping.mp4",
-        transient: false,
-      },
-      personSlot: {
-        x: 0.59,
-        y: 0.38,
-        scale: 1,
-        shape: "full",
-      },
+        "id": "il-famoso-xi-jinping-1778097968668",
+        "name": "Test",
+        "category": "uploaded",
+        "renderer": "uploadedMedia",
+        "colors": [
+            "#d91417",
+            "#f2c45a",
+            "#111820"
+        ],
+        "copy": {
+            "titleZh": "",
+            "titleEn": "",
+            "subtitleZh": "",
+            "subtitleEn": "",
+            "seal": ""
+        },
+        "media": {
+            "kind": "video",
+            "name": "Il famoso xi jinping.mp4",
+            "src": "assets/templates/Il famoso xi jinping.mp4",
+            "transient": false
+        },
+        "personSlot": {
+            "x": 0.59,
+            "y": 0.38,
+            "scale": 1,
+            "shape": "full"
+        }
     },
-  ];
+    {
+        "id": "template-1778166307892-1778166307892",
+        "name": "中国现场 / CHINA LIVE SCENE",
+        "category": "uploaded",
+        "renderer": "uploadedMedia",
+        "colors": [
+            "#d91417",
+            "#f2c45a",
+            "#111820"
+        ],
+        "copy": {
+            "titleZh": "",
+            "titleEn": "",
+            "subtitleZh": "",
+            "subtitleEn": "",
+            "seal": ""
+        },
+        "media": {
+            "kind": "video",
+            "name": "那種早安圖你一定收過。什麼諧音梗、什麼蓮宇宙開光祝福那種（？）早上看到會想翻白眼，但還是默默存下來 🤣這次聯名更誇張。每一款商品都不是隨便貼.mp4",
+            "src": "assets/templates/template-1778166307892-1778166307892.mp4",
+            "transient": false
+        },
+        "personSlot": {
+            "x": 0.5,
+            "y": 0.48,
+            "scale": 0.76,
+            "shape": "full"
+        }
+    }
+];
 
   const mediaElementCache = new Map();
 
@@ -139,13 +173,14 @@
       ...config,
       draw(ctx, w, h, t, power) {
         const renderer = templateRenderers[this.renderer];
-        if (!renderer) throw new Error(`Missing renderer for template: ${this.id}`);
+        if (!renderer) throw new Error("Missing renderer for template: " + this.id);
         renderer(this, ctx, w, h, t, power);
       },
     };
   }
 
   function upsertRuntimeTemplate(config) {
+    if (typeof templates === "undefined" || !installRenderer()) return;
     const runtime = makeRuntimeTemplate(config);
     const index = templates.findIndex((template) => template.id === config.id);
     if (index >= 0) Object.assign(templates[index], runtime);
@@ -170,12 +205,8 @@
         return;
       }
       const timer = window.setTimeout(() => resolve(false), 5000);
-      const element = config.media.kind === "video" ? document.createElement("video") : new Image();
+      const element = new Image();
       element.onload = () => {
-        window.clearTimeout(timer);
-        resolve(true);
-      };
-      element.onloadedmetadata = () => {
         window.clearTimeout(timer);
         resolve(true);
       };
@@ -184,7 +215,6 @@
         resolve(false);
       };
       element.src = config.media.src;
-      if (config.media.kind === "video") element.load();
     });
   }
 
