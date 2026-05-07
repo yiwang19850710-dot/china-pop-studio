@@ -130,6 +130,15 @@ h2 {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
+#stage.portrait-drag-ready {
+  cursor: grab;
+  touch-action: none;
+}
+
+#stage.portrait-dragging {
+  cursor: grabbing;
+}
+
 #stage[width="1280"] {
   width: min(100%, calc((100vh - 190px) * 16 / 9), 980px);
 }
