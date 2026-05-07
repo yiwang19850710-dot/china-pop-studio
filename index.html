@@ -4,8 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>China Pop Studio</title>
-    <link rel="stylesheet" href="styles.css?v=2" />
+    <link rel="stylesheet" href="styles.css?v=3" />
     <link rel="stylesheet" href="mobile-upgrades.css?v=3" />
+    <link rel="stylesheet" href="recording-upgrades.css?v=1" />
   </head>
   <body>
     <main class="app-shell">
@@ -21,6 +22,11 @@
         <div class="stage-wrap">
           <canvas id="stage" width="720" height="1280" aria-label="Camera preview"></canvas>
           <video id="camera" playsinline muted></video>
+          <div class="recording-indicator" id="recordingIndicator" hidden>
+            <span></span>
+            <b>Recording</b>
+            <em id="recordingCountdown">0s</em>
+          </div>
         </div>
 
         <div class="action-row">
@@ -190,9 +196,10 @@
     </main>
 
     <script src="templates.js"></script>
-    <script src="app.js?v=2"></script>
+    <script src="app.js?v=3"></script>
     <script src="portrait-segmentation.js?v=5"></script>
     <script src="studio-upgrades.js?v=4"></script>
+    <script src="recording-upgrades.js?v=1"></script>
     <script src="published-loader.js?v=1"></script>
     <script src="admin-loader.js?v=3"></script>
   </body>
