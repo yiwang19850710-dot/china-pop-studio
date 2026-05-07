@@ -62,6 +62,15 @@
               <p id="managerMediaStatus">Upload a China-scene image or short video, then generate a draft template.</p>
             </div>
 
+            <div class="media-generator sound-generator">
+              <label>
+                Upload template sound
+                <input id="managerAudioUpload" accept="audio/*" type="file" />
+              </label>
+              <button id="managerClearAudio" type="button">Clear template sound</button>
+              <p id="managerAudioStatus">Optional: add music or a sound effect for this template.</p>
+            </div>
+
             <label>
               Editing template
               <select id="managerTemplate"></select>
@@ -172,6 +181,16 @@
           </label>
 
           <label>
+            Sound mode
+            <select id="audioMode">
+              <option value="mic">Mic sound</option>
+              <option value="template">Template sound</option>
+              <option value="both">Template + mic</option>
+              <option value="mute">Mute</option>
+            </select>
+          </label>
+
+          <label>
             Portrait size
             <input id="portraitSize" min="55" max="105" value="78" type="range" />
           </label>
@@ -199,9 +218,9 @@
     <script src="app.js?v=3"></script>
     <script src="portrait-segmentation.js?v=5"></script>
     <script src="studio-upgrades.js?v=5"></script>
-    <script src="recording-upgrades.js?v=7"></script>
+    <script src="recording-upgrades.js?v=8"></script>
     <script src="performance-upgrades.js?v=1"></script>
     <script src="published-loader.js?v=1"></script>
-    <script src="admin-loader.js?v=3"></script>
+    <script src="admin-loader.js?v=4"></script>
   </body>
 </html>
