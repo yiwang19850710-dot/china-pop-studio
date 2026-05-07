@@ -64,7 +64,7 @@
       downloadEl.download = filename;
       downloadEl.textContent = "Download again";
       downloadEl.hidden = true;
-      window.setTimeout(clickDownloadLink, 80);
+      clickDownloadLink();
     }
     return url;
   }
