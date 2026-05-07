@@ -161,6 +161,18 @@
     return media.kind === "video" ? ".mp4" : ".jpg";
   }
 
+  function extensionFromAudio(audio, blob) {
+    const fromName = String(audio.name || "").match(/\.[a-z0-9]+$/i)?.[0];
+    if (fromName) return fromName.toLowerCase();
+    const type = blob?.type || audio.type || "";
+    if (type.includes("mpeg") || type.includes("mp3")) return ".mp3";
+    if (type.includes("wav")) return ".wav";
+    if (type.includes("ogg")) return ".ogg";
+    if (type.includes("aac")) return ".aac";
+    if (type.includes("mp4")) return ".m4a";
+    return ".mp3";
+  }
+
   function encodePath(path) {
     return path.split("/").map(encodeURIComponent).join("/");
   }
@@ -275,6 +287,42 @@
     config.media = {
       ...config.media,
       name: config.media.name || assetName,
+      src: assetPath,
+      transient: false,
+    };
+    return config;
+  }
+
+  async function publishAudioAsset(config, form) {
+    if (!config.audio?.src) return config;
+    const blob = await blobFromMediaSource(config.audio);
+    if (!blob) {
+      config.audio.transient = false;
+      return config;
+    }
+    if (blob.size > MAX_ASSET_BYTES) {
+      throw new Error("This sound file is too large for direct GitHub upload. Please compress it below 95MB first.");
+    }
+
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const ext = extensionFromAudio(config.audio, blob);
+    const assetName = `${makeSlug(config.id)}-sound${ext}`;
+    const assetPath = `assets/sounds/${assetName}`;
+    const current = await readGithubFile(form.repo, assetPath, form.branch, form.token);
+    await writeGithubFile(
+      form.repo,
+      assetPath,
+      form.branch,
+      form.token,
+      bytesToBase64(bytes),
+      `Publish template sound ${assetName}`,
+      current?.sha,
+    );
+
+    config.audio = {
+      ...config.audio,
+      kind: "audio",
+      name: config.audio.name || assetName,
       src: assetPath,
       transient: false,
     };
@@ -490,7 +538,10 @@
       const draft = await getCurrentTemplateConfig();
 
       setPublishStatus("Uploading media asset...");
-      const publishable = await publishMediaAsset(draft, form);
+      const withMedia = await publishMediaAsset(draft, form);
+
+      setPublishStatus("Uploading sound asset...");
+      const publishable = await publishAudioAsset(withMedia, form);
 
       setPublishStatus("Updating public template list...");
       const publishedFile = await readGithubFile(form.repo, "published-templates.js", form.branch, form.token);
