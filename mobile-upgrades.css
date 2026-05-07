@@ -24,11 +24,53 @@
   background: rgba(91, 191, 145, 0.08);
 }
 
+.admin-publish-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(243, 200, 90, 0.38);
+  border-radius: 8px;
+  background: rgba(243, 200, 90, 0.08);
+}
+
+.admin-publish-panel h3 {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.admin-publish-panel button {
+  border-color: rgba(243, 200, 90, 0.66);
+  color: #1a1410;
+  background: linear-gradient(180deg, #ffe08a, #e8ad38);
+  font-weight: 900;
+}
+
 .admin-save-row p {
   margin: 0;
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.45;
+}
+
+.admin-publish-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.admin-publish-panel summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.admin-publish-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .admin-json-tools {
