@@ -16,6 +16,7 @@
   let albumSegmentationResolver = null;
   let albumCutoutFailed = false;
   let portraitDrag = null;
+  let portraitPinch = null;
   const albumMaskCanvas = document.createElement("canvas");
   const albumMaskCtx = albumMaskCanvas.getContext("2d", { willReadFrequently: true });
   const cdnBases = [
@@ -291,14 +292,57 @@
       managerSlotYInput.value = y;
       if (typeof managerSlotXValue !== "undefined" && managerSlotXValue) managerSlotXValue.textContent = `${x}%`;
       if (typeof managerSlotYValue !== "undefined" && managerSlotYValue) managerSlotYValue.textContent = `${y}%`;
+      if (
+        typeof managerSlotScaleInput !== "undefined" &&
+        typeof managerSlotScaleValue !== "undefined" &&
+        managerSlotScaleInput &&
+        managerSlotScaleValue &&
+        slot.scale
+      ) {
+        const scale = Math.round(slot.scale * 100);
+        managerSlotScaleInput.value = scale;
+        managerSlotScaleValue.textContent = `${scale}%`;
+      }
     } catch (error) {
       console.warn("Could not sync dragged portrait position.", error);
     }
   }
 
+  function applyUserScale(scale, centerPoint = null) {
+    const template = templates[currentTemplate];
+    if (!template) return;
+    const nextSlot = {
+      ...(template.personSlot || {}),
+      scale: clamp(scale, 0.35, 1.8),
+    };
+    if (centerPoint) {
+      nextSlot.x = clamp(centerPoint.x / W, 0.04, 0.96);
+      nextSlot.y = clamp(centerPoint.y / H, 0.04, 0.96);
+    }
+    template.personSlot = nextSlot;
+    syncManagerSlotControls(nextSlot);
+  }
+
+  function pointerDistance(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  function pointerCenter(a, b) {
+    return {
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+    };
+  }
+
+  function getActivePointerPair(activePointers) {
+    const points = Array.from(activePointers.values());
+    return points.length >= 2 ? [points[0], points[1]] : null;
+  }
+
   function installPortraitDrag() {
     if (!stage || stage.dataset.portraitDragInstalled) return;
     stage.dataset.portraitDragInstalled = "true";
+    const activePointers = new Map();
 
     stage.addEventListener("pointerdown", (event) => {
       if (event.button !== undefined && event.button !== 0) return;
@@ -306,6 +350,23 @@
       const frame = getFrameBox();
       const point = getCanvasPoint(event);
       if (!pointHitsFrame(point, frame)) return;
+      activePointers.set(event.pointerId, point);
+
+      if (activePointers.size >= 2) {
+        const pair = getActivePointerPair(activePointers);
+        if (!pair) return;
+        const template = templates[currentTemplate];
+        portraitDrag = null;
+        portraitPinch = {
+          distance: Math.max(1, pointerDistance(pair[0], pair[1])),
+          scale: template?.personSlot?.scale || 1,
+        };
+        stage.classList.add("portrait-dragging");
+        stage.setPointerCapture?.(event.pointerId);
+        setAppStatus("Resize portrait");
+        event.preventDefault();
+        return;
+      }
 
       portraitDrag = {
         pointerId: event.pointerId,
@@ -319,6 +380,18 @@
     });
 
     stage.addEventListener("pointermove", (event) => {
+      if (activePointers.has(event.pointerId)) {
+        activePointers.set(event.pointerId, getCanvasPoint(event));
+      }
+      if (portraitPinch) {
+        const pair = getActivePointerPair(activePointers);
+        if (pair) {
+          const distance = Math.max(1, pointerDistance(pair[0], pair[1]));
+          applyUserScale(portraitPinch.scale * (distance / portraitPinch.distance), pointerCenter(pair[0], pair[1]));
+          event.preventDefault();
+        }
+        return;
+      }
       if (!portraitDrag || event.pointerId !== portraitDrag.pointerId) return;
       const template = templates[currentTemplate];
       if (!template) return;
@@ -334,9 +407,16 @@
     });
 
     function finishDrag(event) {
-      if (!portraitDrag || event.pointerId !== portraitDrag.pointerId) return;
-      portraitDrag = null;
-      stage.classList.remove("portrait-dragging");
+      activePointers.delete(event.pointerId);
+      if (portraitPinch && activePointers.size < 2) {
+        portraitPinch = null;
+      }
+      if (portraitDrag && event.pointerId === portraitDrag.pointerId) {
+        portraitDrag = null;
+      }
+      if (!portraitDrag && !portraitPinch) {
+        stage.classList.remove("portrait-dragging");
+      }
       stage.releasePointerCapture?.(event.pointerId);
       setAppStatus(albumPhoto ? "Phone photo ready" : "Camera is live");
       event.preventDefault();
@@ -344,6 +424,18 @@
 
     stage.addEventListener("pointerup", finishDrag);
     stage.addEventListener("pointercancel", finishDrag);
+
+    stage.addEventListener("wheel", (event) => {
+      if (!canDragPortrait()) return;
+      const frame = getFrameBox();
+      const point = getCanvasPoint(event);
+      if (!pointHitsFrame(point, frame)) return;
+      const currentScale = templates[currentTemplate]?.personSlot?.scale || 1;
+      const factor = event.deltaY < 0 ? 1.06 : 0.94;
+      applyUserScale(currentScale * factor);
+      setAppStatus("Resize portrait");
+      event.preventDefault();
+    }, { passive: false });
   }
 
   function sourceIsReady(source) {
