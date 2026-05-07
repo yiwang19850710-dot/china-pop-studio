@@ -22,6 +22,7 @@
   let shareButtonEl = null;
   let lastShareFile = null;
   let activeAudioCleanup = null;
+  let activeAudioLabel = "";
 
   if (!stageEl || !captureBtn || !recordBtn) return;
 
@@ -68,11 +69,11 @@
   function getSupportedRecordingFormat(needsAudio = false) {
     const formats = needsAudio
       ? [
-          { mimeType: "video/mp4;codecs=avc1.42E01E,mp4a.40.2", extension: "mp4", label: "MP4" },
-          { mimeType: "video/mp4;codecs=h264,mp4a.40.2", extension: "mp4", label: "MP4" },
           { mimeType: "video/webm;codecs=vp9,opus", extension: "webm", label: "WebM" },
           { mimeType: "video/webm;codecs=vp8,opus", extension: "webm", label: "WebM" },
           { mimeType: "video/webm", extension: "webm", label: "WebM" },
+          { mimeType: "video/mp4;codecs=avc1.42E01E,mp4a.40.2", extension: "mp4", label: "MP4" },
+          { mimeType: "video/mp4;codecs=h264,mp4a.40.2", extension: "mp4", label: "MP4" },
           { mimeType: "video/mp4", extension: "mp4", label: "MP4" },
         ]
       : [
@@ -198,7 +199,7 @@
     const label = `${secondsLeft}s`;
     if (indicatorTimeEl) indicatorTimeEl.textContent = label;
     recordBtn.textContent = `REC Recording ${label}`;
-    setAppStatus(`Recording ${label}`);
+    setAppStatus(activeAudioLabel ? `Recording ${label} · ${activeAudioLabel}` : `Recording ${label}`);
   }
 
   function startRecordingUi(durationMs) {
@@ -218,6 +219,7 @@
     recordTickTimer = null;
     recordingEndsAt = 0;
     setRecordingUi(false);
+    activeAudioLabel = "";
   }
 
   function unlockActionButtons() {
@@ -343,15 +345,23 @@
     const mode = getAudioMode();
     const recordingStream = new MediaStream(canvasStream.getVideoTracks());
     const micTrack = getMicTrack();
+    activeAudioLabel = "";
 
     if (mode === "mute") {
+      activeAudioLabel = "muted";
       setAppStatus("Recording without sound");
       return recordingStream;
     }
 
     if (mode === "mic") {
-      if (micTrack) recordingStream.addTrack(micTrack);
-      else setAppStatus("Mic unavailable, recording silent video");
+      if (micTrack) {
+        recordingStream.addTrack(micTrack);
+        activeAudioLabel = "mic audio";
+        setAppStatus("Mic audio ready");
+      } else {
+        activeAudioLabel = "no mic";
+        setAppStatus("Mic unavailable, recording silent video");
+      }
       return recordingStream;
     }
 
@@ -359,8 +369,10 @@
     if (!AudioContextConstructor) {
       if (mode === "both" && micTrack) {
         recordingStream.addTrack(micTrack);
+        activeAudioLabel = "mic fallback";
         setAppStatus("Template sound unavailable, using mic");
       } else {
+        activeAudioLabel = "no audio";
         setAppStatus("Template sound unavailable");
       }
       return recordingStream;
@@ -393,12 +405,19 @@
 
       if (!hasAudio) {
         await audioContext.close();
-        if (mode === "both" && micTrack) recordingStream.addTrack(micTrack);
-        setAppStatus(mode === "both" && micTrack ? "Template sound unavailable, using mic" : "Template sound unavailable");
+        if (mode === "both" && micTrack) {
+          recordingStream.addTrack(micTrack);
+          activeAudioLabel = "mic fallback";
+          setAppStatus("Template sound unavailable, using mic");
+        } else {
+          activeAudioLabel = "no audio";
+          setAppStatus("Template sound unavailable");
+        }
         return recordingStream;
       }
 
       destination.stream.getAudioTracks().forEach((track) => recordingStream.addTrack(track));
+      activeAudioLabel = mode === "both" ? "template + mic audio" : "template audio";
       activeAudioCleanup = () => {
         cleanupTasks.forEach((cleanup) => cleanup());
         destination.stream.getTracks().forEach((track) => track.stop());
@@ -412,8 +431,10 @@
       await audioContext.close().catch(() => {});
       if (mode === "both" && micTrack) {
         recordingStream.addTrack(micTrack);
+        activeAudioLabel = "mic fallback";
         setAppStatus("Template sound unavailable, using mic");
       } else {
+        activeAudioLabel = "no audio";
         setAppStatus("Template sound unavailable");
       }
       return recordingStream;
@@ -461,7 +482,12 @@
       const hasAudio = recordingStream.getAudioTracks().some((track) => track.readyState === "live");
       const format = getSupportedRecordingFormat(hasAudio);
 
-      activeRecorder = new MediaRecorder(recordingStream, { mimeType: format.mimeType });
+      try {
+        activeRecorder = new MediaRecorder(recordingStream, { mimeType: format.mimeType });
+      } catch (error) {
+        console.warn("Preferred recording format failed, using browser default.", error);
+        activeRecorder = new MediaRecorder(recordingStream);
+      }
       activeRecorder.ondataavailable = (event) => {
         if (event.data.size) activeChunks.push(event.data);
       };
