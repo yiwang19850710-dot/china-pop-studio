@@ -9,6 +9,7 @@
   const photoPreviewEl = document.querySelector("#photoPreview");
   const videoPreviewEl = document.querySelector("#videoPreview");
   const recordLengthEl = document.querySelector("#recordLength");
+  const audioModeEl = document.querySelector("#audioMode");
   const statusEl = document.querySelector("#status");
   let indicatorEl = document.querySelector("#recordingIndicator");
   let indicatorTimeEl = document.querySelector("#recordingCountdown");
@@ -20,6 +21,7 @@
   let lastObjectUrl = "";
   let shareButtonEl = null;
   let lastShareFile = null;
+  let activeAudioCleanup = null;
 
   if (!stageEl || !captureBtn || !recordBtn) return;
 
@@ -212,6 +214,177 @@
     recordBtn.disabled = false;
   }
 
+  function getAudioMode() {
+    return audioModeEl?.value || "mic";
+  }
+
+  function getMicTrack() {
+    return cameraEl?.srcObject?.getAudioTracks?.()[0] || null;
+  }
+
+  function getCurrentTemplateConfig() {
+    try {
+      if (typeof templates === "undefined" || typeof currentTemplate === "undefined") return null;
+      return templates[currentTemplate] || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function getTemplateSoundSource() {
+    const template = getCurrentTemplateConfig();
+    if (template?.audio?.src) {
+      return {
+        kind: "audio",
+        src: template.audio.src,
+        name: template.audio.name || "template sound",
+      };
+    }
+    if (template?.media?.kind === "video" && template.media.src) {
+      return {
+        kind: "video",
+        src: template.media.src,
+        name: template.media.name || "template video",
+      };
+    }
+    return null;
+  }
+
+  function stopActiveAudio() {
+    if (!activeAudioCleanup) return;
+    try {
+      activeAudioCleanup();
+    } catch (error) {
+      console.warn("Could not clean up recording audio.", error);
+    }
+    activeAudioCleanup = null;
+  }
+
+  function createTemplateAudioElement(source) {
+    const element = document.createElement(source.kind === "video" ? "video" : "audio");
+    element.src = source.src;
+    element.loop = true;
+    element.playsInline = true;
+    element.preload = "auto";
+    element.muted = false;
+    element.volume = 1;
+    return element;
+  }
+
+  async function connectTemplateAudio(audioContext, destination, gainValue) {
+    const source = getTemplateSoundSource();
+    if (!source) return null;
+
+    const element = createTemplateAudioElement(source);
+    const mediaSource = audioContext.createMediaElementSource(element);
+    const gain = audioContext.createGain();
+    gain.gain.value = gainValue;
+    mediaSource.connect(gain).connect(destination);
+
+    try {
+      element.currentTime = 0;
+    } catch (error) {
+      console.warn("Could not rewind template sound.", error);
+    }
+
+    await audioContext.resume();
+    await element.play();
+
+    return {
+      element,
+      cleanup() {
+        element.pause();
+        element.removeAttribute("src");
+        element.load();
+        mediaSource.disconnect();
+        gain.disconnect();
+      },
+    };
+  }
+
+  async function createRecordingStream(canvasStream) {
+    stopActiveAudio();
+
+    const mode = getAudioMode();
+    const recordingStream = new MediaStream(canvasStream.getVideoTracks());
+    const micTrack = getMicTrack();
+
+    if (mode === "mute") {
+      setAppStatus("Recording without sound");
+      return recordingStream;
+    }
+
+    if (mode === "mic") {
+      if (micTrack) recordingStream.addTrack(micTrack);
+      else setAppStatus("Mic unavailable, recording silent video");
+      return recordingStream;
+    }
+
+    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextConstructor) {
+      if (mode === "both" && micTrack) {
+        recordingStream.addTrack(micTrack);
+        setAppStatus("Template sound unavailable, using mic");
+      } else {
+        setAppStatus("Template sound unavailable");
+      }
+      return recordingStream;
+    }
+
+    const audioContext = new AudioContextConstructor();
+    const destination = audioContext.createMediaStreamDestination();
+    const cleanupTasks = [];
+    let hasAudio = false;
+
+    try {
+      const templateAudio = await connectTemplateAudio(audioContext, destination, mode === "both" ? 0.82 : 1);
+      if (templateAudio) {
+        cleanupTasks.push(templateAudio.cleanup);
+        hasAudio = true;
+      }
+
+      if (mode === "both" && micTrack) {
+        const micStream = new MediaStream([micTrack]);
+        const micSource = audioContext.createMediaStreamSource(micStream);
+        const micGain = audioContext.createGain();
+        micGain.gain.value = 0.78;
+        micSource.connect(micGain).connect(destination);
+        cleanupTasks.push(() => {
+          micSource.disconnect();
+          micGain.disconnect();
+        });
+        hasAudio = true;
+      }
+
+      if (!hasAudio) {
+        await audioContext.close();
+        if (mode === "both" && micTrack) recordingStream.addTrack(micTrack);
+        setAppStatus(mode === "both" && micTrack ? "Template sound unavailable, using mic" : "Template sound unavailable");
+        return recordingStream;
+      }
+
+      destination.stream.getAudioTracks().forEach((track) => recordingStream.addTrack(track));
+      activeAudioCleanup = () => {
+        cleanupTasks.forEach((cleanup) => cleanup());
+        destination.stream.getTracks().forEach((track) => track.stop());
+        audioContext.close().catch(() => {});
+      };
+      return recordingStream;
+    } catch (error) {
+      console.warn("Could not use template sound.", error);
+      cleanupTasks.forEach((cleanup) => cleanup());
+      destination.stream.getTracks().forEach((track) => track.stop());
+      await audioContext.close().catch(() => {});
+      if (mode === "both" && micTrack) {
+        recordingStream.addTrack(micTrack);
+        setAppStatus("Template sound unavailable, using mic");
+      } else {
+        setAppStatus("Template sound unavailable");
+      }
+      return recordingStream;
+    }
+  }
+
   async function capturePhotoWithAutoDownload() {
     if (captureBtn.disabled) return;
     captureBtn.disabled = true;
@@ -250,15 +423,15 @@
       const seconds = Number(recordLengthEl?.value || 5);
       const format = getSupportedRecordingFormat();
       const canvasStream = stageEl.captureStream(30);
-      const audioTrack = cameraEl?.srcObject?.getAudioTracks?.()[0];
-      if (audioTrack) canvasStream.addTrack(audioTrack);
+      const recordingStream = await createRecordingStream(canvasStream);
 
-      activeRecorder = new MediaRecorder(canvasStream, { mimeType: format.mimeType });
+      activeRecorder = new MediaRecorder(recordingStream, { mimeType: format.mimeType });
       activeRecorder.ondataavailable = (event) => {
         if (event.data.size) activeChunks.push(event.data);
       };
       activeRecorder.onstop = () => {
         stopRecordingUi();
+        stopActiveAudio();
         setAppStatus("Preparing video");
         if (!activeChunks.length) {
           activeRecorder = null;
@@ -291,6 +464,7 @@
       }, seconds * 1000);
     } catch (error) {
       activeRecorder = null;
+      stopActiveAudio();
       stopRecordingUi();
       unlockActionButtons();
       setAppStatus("Video recording failed");
