@@ -61,16 +61,27 @@
     await waitForAnimationFrame();
   }
 
-  function getSupportedRecordingFormat() {
-    const formats = [
-      { mimeType: "video/mp4;codecs=avc1.42E01E,mp4a.40.2", extension: "mp4", label: "MP4" },
-      { mimeType: "video/mp4;codecs=avc1.42E01E", extension: "mp4", label: "MP4" },
-      { mimeType: "video/mp4", extension: "mp4", label: "MP4" },
-      { mimeType: "video/webm;codecs=vp8,opus", extension: "webm", label: "WebM" },
-      { mimeType: "video/webm;codecs=vp8", extension: "webm", label: "WebM" },
-      { mimeType: "video/webm", extension: "webm", label: "WebM" },
-    ];
-    return formats.find((format) => MediaRecorder.isTypeSupported(format.mimeType)) || formats[formats.length - 1];
+  function isSupportedFormat(format) {
+    return !MediaRecorder.isTypeSupported || MediaRecorder.isTypeSupported(format.mimeType);
+  }
+
+  function getSupportedRecordingFormat(needsAudio = false) {
+    const formats = needsAudio
+      ? [
+          { mimeType: "video/mp4;codecs=avc1.42E01E,mp4a.40.2", extension: "mp4", label: "MP4" },
+          { mimeType: "video/mp4;codecs=h264,mp4a.40.2", extension: "mp4", label: "MP4" },
+          { mimeType: "video/webm;codecs=vp9,opus", extension: "webm", label: "WebM" },
+          { mimeType: "video/webm;codecs=vp8,opus", extension: "webm", label: "WebM" },
+          { mimeType: "video/webm", extension: "webm", label: "WebM" },
+          { mimeType: "video/mp4", extension: "mp4", label: "MP4" },
+        ]
+      : [
+          { mimeType: "video/mp4;codecs=avc1.42E01E", extension: "mp4", label: "MP4" },
+          { mimeType: "video/mp4", extension: "mp4", label: "MP4" },
+          { mimeType: "video/webm;codecs=vp8", extension: "webm", label: "WebM" },
+          { mimeType: "video/webm", extension: "webm", label: "WebM" },
+        ];
+    return formats.find(isSupportedFormat) || formats[formats.length - 1];
   }
 
   function getShareMimeType(filename, blob) {
@@ -219,7 +230,9 @@
   }
 
   function getMicTrack() {
-    return cameraEl?.srcObject?.getAudioTracks?.()[0] || null;
+    const track = cameraEl?.srcObject?.getAudioTracks?.()[0] || null;
+    if (!track || track.readyState !== "live" || track.enabled === false) return null;
+    return track;
   }
 
   function getCurrentTemplateConfig() {
@@ -443,9 +456,10 @@
     try {
       activeChunks = [];
       const seconds = Number(recordLengthEl?.value || 5);
-      const format = getSupportedRecordingFormat();
       const canvasStream = stageEl.captureStream(30);
       const recordingStream = await createRecordingStream(canvasStream);
+      const hasAudio = recordingStream.getAudioTracks().some((track) => track.readyState === "live");
+      const format = getSupportedRecordingFormat(hasAudio);
 
       activeRecorder = new MediaRecorder(recordingStream, { mimeType: format.mimeType });
       activeRecorder.ondataavailable = (event) => {
