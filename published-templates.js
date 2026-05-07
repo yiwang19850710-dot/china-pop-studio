@@ -55,8 +55,7 @@
       element.muted = true;
       element.loop = true;
       element.playsInline = true;
-      element.preload = "auto";
-      element.play().catch(() => {});
+      element.preload = "metadata";
     } else {
       element = new Image();
       element.src = media.src;
@@ -97,7 +96,7 @@
     let drewMedia = false;
 
     if (media) {
-      if (config.media?.kind === "video") media.play().catch(() => {});
+      if (config.media?.kind === "video" && Math.max(w, h) > 500) media.play().catch(() => {});
       drewMedia = drawCoverElement(ctx, media, w, h);
     }
 
@@ -150,6 +149,10 @@
     return new Promise((resolve) => {
       if (!config.media?.src) {
         resolve(false);
+        return;
+      }
+      if (config.media.kind === "video") {
+        resolve(true);
         return;
       }
       const timer = window.setTimeout(() => resolve(false), 5000);
