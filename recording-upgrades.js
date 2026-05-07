@@ -69,6 +69,16 @@
     return url;
   }
 
+  function finishActiveRecording() {
+    if (activeRecorder?.state !== "recording") return;
+    try {
+      activeRecorder.requestData();
+    } catch (error) {
+      console.warn("Could not request final video data.", error);
+    }
+    activeRecorder.stop();
+  }
+
   function setRecordingUi(active, remainingMs = 0) {
     ensureIndicator();
     recordBtn.classList.toggle("recording", active);
@@ -118,7 +128,7 @@
         unlockActionButtons();
         return;
       }
-      const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.png`);
+      const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.jpg`);
       if (photoPreviewEl) {
         photoPreviewEl.src = url;
         photoPreviewEl.hidden = false;
@@ -127,13 +137,13 @@
       if (outputPanelEl) outputPanelEl.hidden = false;
       setAppStatus("Photo saved");
       unlockActionButtons();
-    }, "image/png");
+    }, "image/jpeg", 0.9);
   }
 
   async function recordVideoWithIndicator() {
     if (activeRecorder?.state === "recording") {
       setAppStatus("Finishing video");
-      activeRecorder.stop();
+      finishActiveRecording();
       return;
     }
 
@@ -147,9 +157,11 @@
       const canvasStream = stageEl.captureStream(30);
       const audioTrack = cameraEl?.srcObject?.getAudioTracks?.()[0];
       if (audioTrack) canvasStream.addTrack(audioTrack);
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-        ? "video/webm;codecs=vp9,opus"
-        : "video/webm";
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
+        ? "video/webm;codecs=vp8,opus"
+        : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+          ? "video/webm;codecs=vp8"
+          : "video/webm";
 
       activeRecorder = new MediaRecorder(canvasStream, { mimeType });
       activeRecorder.ondataavailable = (event) => {
@@ -170,11 +182,11 @@
         setAppStatus("Video saved");
       };
 
-      activeRecorder.start();
+      activeRecorder.start(500);
       startRecordingUi(seconds * 1000);
       recordBtn.disabled = false;
       recordStopTimer = window.setTimeout(() => {
-        if (activeRecorder?.state === "recording") activeRecorder.stop();
+        finishActiveRecording();
       }, seconds * 1000);
     } catch (error) {
       activeRecorder = null;
