@@ -250,6 +250,19 @@
     return null;
   }
 
+  function restartTemplateVisualMedia(source) {
+    if (source?.kind !== "video") return;
+    try {
+      if (typeof mediaElementCache === "undefined") return;
+      const visualElement = mediaElementCache.get(source.src);
+      if (!visualElement) return;
+      visualElement.currentTime = 0;
+      visualElement.play?.().catch?.(() => {});
+    } catch (error) {
+      console.warn("Could not restart template video preview.", error);
+    }
+  }
+
   function stopActiveAudio() {
     if (!activeAudioCleanup) return;
     try {
@@ -274,6 +287,7 @@
   async function connectTemplateAudio(audioContext, destination, gainValue) {
     const source = getTemplateSoundSource();
     if (!source) return null;
+    restartTemplateVisualMedia(source);
 
     const element = createTemplateAudioElement(source);
     const mediaSource = audioContext.createMediaElementSource(element);
@@ -281,25 +295,33 @@
     gain.gain.value = gainValue;
     mediaSource.connect(gain).connect(destination);
 
+    const cleanup = () => {
+      try {
+        element.pause();
+        element.removeAttribute("src");
+        element.load();
+        mediaSource.disconnect();
+        gain.disconnect();
+      } catch (error) {
+        console.warn("Could not clean up template sound.", error);
+      }
+    };
+
     try {
       element.currentTime = 0;
     } catch (error) {
       console.warn("Could not rewind template sound.", error);
     }
 
-    await audioContext.resume();
-    await element.play();
+    try {
+      await audioContext.resume();
+      await element.play();
+    } catch (error) {
+      cleanup();
+      throw error;
+    }
 
-    return {
-      element,
-      cleanup() {
-        element.pause();
-        element.removeAttribute("src");
-        element.load();
-        mediaSource.disconnect();
-        gain.disconnect();
-      },
-    };
+    return { element, cleanup };
   }
 
   async function createRecordingStream(canvasStream) {
