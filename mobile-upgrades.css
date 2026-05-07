@@ -1,0 +1,147 @@
+.album-upload input {
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  pointer-events: none;
+}
+
+.photo-clear-button {
+  border-color: rgba(249, 244, 232, 0.24);
+}
+
+.admin-save-row {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(91, 191, 145, 0.34);
+  border-radius: 8px;
+  background: rgba(91, 191, 145, 0.08);
+}
+
+.admin-save-row p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.admin-json-tools {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.admin-json-tools summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  body {
+    background:
+      linear-gradient(150deg, rgba(232, 76, 61, 0.16), transparent 28%),
+      linear-gradient(160deg, #0d1217 0%, #151b22 100%);
+  }
+
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+  }
+
+  .studio,
+  .controls {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .studio {
+    min-height: 100svh;
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .topbar {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .status {
+    min-width: 96px;
+    font-size: 0.72rem;
+  }
+
+  #stage {
+    width: min(100%, calc((100svh - 165px) * 9 / 16), 520px);
+  }
+
+  .action-row {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 8px 0 0;
+    background: linear-gradient(180deg, rgba(13, 18, 23, 0), rgba(13, 18, 23, 0.96) 24%);
+  }
+
+  .action-row button,
+  .action-row .download,
+  .action-row .inline-toggle {
+    width: 100%;
+    min-height: 40px;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .controls {
+    max-height: none;
+    padding: 10px;
+  }
+
+  .controls > section:first-child {
+    margin-top: 0;
+  }
+
+  .template-grid {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 2px 2px 8px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+  }
+
+  .template-card {
+    flex: 0 0 112px;
+    scroll-snap-align: start;
+    padding: 7px;
+  }
+
+  .template-card canvas {
+    height: 154px;
+    object-fit: cover;
+  }
+
+  .template-card span {
+    min-height: 34px;
+    font-size: 0.74rem;
+  }
+
+  .panel-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .toggles {
+    grid-template-columns: 1fr 1fr;
+  }
+}
