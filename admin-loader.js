@@ -36,15 +36,11 @@
     try {
       await loadStyle("media-upload.css?v=2");
       await loadScript("admin.js?v=3");
-      await loadScript("media-upload.js?v=4");
       await loadScript("admin-fixes.js?v=4");
       await loadScript("admin-workflow.js?v=3");
       await loadScript("admin-publish.js?v=3");
-      await loadScript("admin-publish-retry.js?v=1");
-      await loadScript("admin-delete.js?v=2");
-      await loadScript("admin-global-hide-fix.js?v=2");
       await loadScript("admin-bulk-delete.js?v=5");
-      await loadScript("admin-delete-unify.js?v=1");
+      await loadScript("admin-console.js?v=1");
     } catch (error) {
       console.warn("Admin tools could not load.", error);
       const status = document.querySelector("#status");
