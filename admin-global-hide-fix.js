@@ -22,7 +22,7 @@
     try {
       if (typeof setStatus === "function") setStatus(message);
     } catch (error) {
-      console.warn("Could not set global hide status.", error);
+      console.warn("Could not set delete status.", error);
     }
     const publishStatus = document.querySelector("#adminPublishStatus");
     if (publishStatus) publishStatus.textContent = message;
@@ -57,6 +57,7 @@
     return {
       Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",
+      "Cache-Control": "no-cache",
       "X-GitHub-Api-Version": "2022-11-28",
     };
   }
@@ -68,8 +69,8 @@
   function textToBase64(text) {
     const bytes = new TextEncoder().encode(text);
     let binary = "";
-    for (let i = 0; i < bytes.length; i += 0x8000) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    for (let index = 0; index < bytes.length; index += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
     }
     return btoa(binary);
   }
@@ -77,7 +78,7 @@
   function base64ToText(base64) {
     const binary = atob(base64.replace(/\s/g, ""));
     const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
     return new TextDecoder().decode(bytes);
   }
 
@@ -90,8 +91,12 @@
   }
 
   async function readGithubFile(form, path) {
-    const url = `https://api.github.com/repos/${form.repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(form.branch)}`;
-    const response = await fetch(url, { headers: headers(form.token) });
+    const cacheBust = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const url = `https://api.github.com/repos/${form.repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(form.branch)}&cacheBust=${cacheBust}`;
+    const response = await fetch(url, {
+      headers: headers(form.token),
+      cache: "no-store",
+    });
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(await githubError(response));
     const payload = await response.json();
@@ -105,6 +110,7 @@
       method: "PUT",
       headers: { ...headers(form.token), "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      cache: "no-store",
     });
     if (!response.ok) throw new Error(await githubError(response));
   }
@@ -120,42 +126,114 @@
     return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
   }
 
-  function fallbackHiddenSource(ids) {
+  function hiddenSource(ids) {
     const json = JSON.stringify([...new Set(ids)].sort(), null, 2).replace(/</g, "\\u003c");
     return `(() => {
+  if (window.CHINA_POP_HIDDEN_TEMPLATES?.ready) {
+    window.CHINA_POP_HIDDEN_TEMPLATES.install?.();
+    window.CHINA_POP_HIDDEN_TEMPLATES.apply?.();
+    return;
+  }
+
   const hiddenTemplateIds = ${json};
   window.CHINA_POP_HIDDEN_TEMPLATE_IDS = hiddenTemplateIds;
+
   const hiddenTemplateIdSet = new Set(hiddenTemplateIds);
+  let applying = false;
+
   function runtimeTemplates() {
-    try { return typeof templates !== "undefined" ? templates : []; } catch (error) { return []; }
+    try {
+      if (typeof templates !== "undefined") return templates;
+    } catch (error) {
+      return [];
+    }
+    return [];
   }
-  function removeFromList(list) {
-    if (!Array.isArray(list)) return;
+
+  function removeFromList(list, idSet) {
+    let removed = 0;
+    if (!Array.isArray(list)) return removed;
     for (let index = list.length - 1; index >= 0; index -= 1) {
-      if (hiddenTemplateIdSet.has(list[index]?.id)) list.splice(index, 1);
+      if (idSet.has(list[index]?.id)) {
+        list.splice(index, 1);
+        removed += 1;
+      }
+    }
+    return removed;
+  }
+
+  function removeSnapshots(idSet) {
+    try {
+      if (typeof baseTemplateSnapshots !== "undefined") removeFromList(baseTemplateSnapshots, idSet);
+    } catch (error) {
+      console.warn("Could not hide template snapshots.", error);
     }
   }
-  function applyHiddenTemplates() {
-    removeFromList(runtimeTemplates());
-    removeFromList(window.CHINA_POP_TEMPLATE_CONFIGS);
+
+  function refreshAfterHide(shouldRender) {
+    try {
+      const list = runtimeTemplates();
+      if (typeof currentTemplate !== "undefined") {
+        currentTemplate = Math.max(0, Math.min(currentTemplate || 0, Math.max(0, list.length - 1)));
+      }
+      if (typeof syncTemplateManagerList === "function") syncTemplateManagerList();
+      if (typeof populateTemplateManager === "function" && list.length) populateTemplateManager(currentTemplate || 0);
+      if (shouldRender && typeof renderTemplateButtons === "function") renderTemplateButtons();
+      if (typeof applyTemplateDefaults === "function" && list.length) applyTemplateDefaults(currentTemplate || 0);
+    } catch (error) {
+      console.warn("Could not refresh hidden templates.", error);
+    }
   }
-  if (typeof renderTemplateButtons === "function" && !renderTemplateButtons.__hiddenTemplateHook) {
+
+  function applyHiddenTemplates(options = {}) {
+    if (applying || !hiddenTemplateIdSet.size) return 0;
+    applying = true;
+    try {
+      installRenderHook();
+      let removed = 0;
+      removed += removeFromList(runtimeTemplates(), hiddenTemplateIdSet);
+      removed += removeFromList(window.CHINA_POP_TEMPLATE_CONFIGS, hiddenTemplateIdSet);
+      removeSnapshots(hiddenTemplateIdSet);
+      if (removed) refreshAfterHide(options.render !== false);
+      return removed;
+    } finally {
+      applying = false;
+    }
+  }
+
+  function installRenderHook() {
+    if (typeof renderTemplateButtons !== "function" || renderTemplateButtons.__hiddenTemplateHook) return;
     const originalRenderTemplateButtons = renderTemplateButtons;
     renderTemplateButtons = function renderTemplateButtonsWithHiddenTemplates(...args) {
-      applyHiddenTemplates();
+      applyHiddenTemplates({ render: false });
       return originalRenderTemplateButtons.apply(this, args);
     };
     renderTemplateButtons.__hiddenTemplateHook = true;
   }
-  window.CHINA_POP_HIDDEN_TEMPLATES = { ids: hiddenTemplateIds, apply: applyHiddenTemplates };
+
+  function watchForLatePublishedTemplates() {
+    let ticks = 0;
+    const timer = window.setInterval(() => {
+      ticks += 1;
+      applyHiddenTemplates();
+      if (ticks >= 24) window.clearInterval(timer);
+    }, 250);
+  }
+
+  window.CHINA_POP_HIDDEN_TEMPLATES = {
+    ready: true,
+    ids: hiddenTemplateIds,
+    install: installRenderHook,
+    apply: applyHiddenTemplates,
+  };
+
+  installRenderHook();
   applyHiddenTemplates();
-  window.setTimeout(applyHiddenTemplates, 0);
-  let ticks = 0;
-  const timer = window.setInterval(() => {
-    ticks += 1;
+  window.setTimeout(() => {
+    installRenderHook();
     applyHiddenTemplates();
-    if (ticks >= 24) window.clearInterval(timer);
-  }, 250);
+  }, 0);
+  watchForLatePublishedTemplates();
 })();
 `;
   }
@@ -166,7 +244,7 @@
     const arrayStart = source.indexOf("[", start);
     let arrayEnd = source.indexOf(";\n  window.CHINA_POP_HIDDEN_TEMPLATE_IDS", arrayStart);
     if (arrayEnd < 0) arrayEnd = source.indexOf(";\r\n  window.CHINA_POP_HIDDEN_TEMPLATE_IDS", arrayStart);
-    if (start < 0 || arrayStart < 0 || arrayEnd < 0) return fallbackHiddenSource(ids);
+    if (start < 0 || arrayStart < 0 || arrayEnd < 0) return hiddenSource(ids);
     const json = JSON.stringify([...new Set(ids)].sort(), null, 2).replace(/</g, "\\u003c");
     return `${source.slice(0, arrayStart)}${json}${source.slice(arrayEnd)}`;
   }
@@ -176,13 +254,17 @@
     const start = source.indexOf(marker);
     const arrayStart = source.indexOf("[", start);
     const arrayEnd = source.indexOf(";\n\n  const mediaElementCache", arrayStart);
-    if (start < 0 || arrayStart < 0 || arrayEnd < 0) throw new Error("Could not read published template list.");
+    if (start < 0 || arrayStart < 0 || arrayEnd < 0) return source;
     const json = JSON.stringify(list, null, 4).replace(/</g, "\\u003c");
     return `${source.slice(0, arrayStart)}${json}${source.slice(arrayEnd)}`;
   }
 
   function isVersionConflict(error) {
     return /does not match|409|conflict/i.test(String(error?.message || ""));
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
 
   function selectedTemplateIds() {
@@ -205,34 +287,41 @@
 
   function removeLocalTemplates(ids) {
     const idSet = new Set(ids);
-    try {
-      const list = studioTemplates();
+    const removeFrom = (list) => {
+      if (!Array.isArray(list)) return;
       for (let index = list.length - 1; index >= 0; index -= 1) {
         if (idSet.has(list[index]?.id)) list.splice(index, 1);
       }
-      if (window.CHINA_POP_TEMPLATE_CONFIGS) {
-        for (let index = window.CHINA_POP_TEMPLATE_CONFIGS.length - 1; index >= 0; index -= 1) {
-          if (idSet.has(window.CHINA_POP_TEMPLATE_CONFIGS[index]?.id)) window.CHINA_POP_TEMPLATE_CONFIGS.splice(index, 1);
-        }
-      }
+    };
+    removeFrom(studioTemplates());
+    removeFrom(window.CHINA_POP_TEMPLATE_CONFIGS);
+    try {
+      if (typeof baseTemplateSnapshots !== "undefined") removeFrom(baseTemplateSnapshots);
     } catch (error) {
-      console.warn("Could not remove local hidden templates.", error);
+      console.warn("Could not remove hidden snapshots.", error);
     }
   }
 
   async function updateHiddenList(form, ids) {
     let lastError = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
       const file = await readGithubFile(form, "hidden-templates.js");
-      const hiddenIds = parseArray(file?.text || "", "const hiddenTemplateIds =", ";\n  window.CHINA_POP_HIDDEN_TEMPLATE_IDS");
-      const before = hiddenIds.length;
-      const next = [...new Set([...hiddenIds, ...ids])];
+      const current = parseArray(file?.text || "", "const hiddenTemplateIds =", ";\n  window.CHINA_POP_HIDDEN_TEMPLATE_IDS");
+      const before = current.length;
+      const next = [...new Set([...current, ...ids])];
       try {
-        await writeGithubFile(form, "hidden-templates.js", replaceHiddenIds(file?.text || "", next), `Hide ${ids.length} templates from public users`, file?.sha);
+        await writeGithubFile(
+          form,
+          "hidden-templates.js",
+          replaceHiddenIds(file?.text || "", next),
+          `Hide ${ids.length} templates from public users`,
+          file?.sha,
+        );
         return { newlyHidden: next.length - before };
       } catch (error) {
         lastError = error;
         if (!isVersionConflict(error)) throw error;
+        await delay(300 + attempt * 250);
       }
     }
     throw lastError || new Error("Could not update hidden template list.");
@@ -240,7 +329,7 @@
 
   async function cleanupPublishedList(form, ids) {
     let lastError = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
       const file = await readGithubFile(form, "published-templates.js");
       if (!file) return { removed: 0, skipped: false };
       const current = parseArray(file.text, "const publishedTemplates =", ";\n\n  const mediaElementCache");
@@ -249,53 +338,61 @@
       const removed = current.length - next.length;
       if (!removed) return { removed: 0, skipped: false };
       try {
-        await writeGithubFile(form, "published-templates.js", replacePublishedTemplates(file.text, next), `Delete ${removed} published templates`, file.sha);
+        await writeGithubFile(
+          form,
+          "published-templates.js",
+          replacePublishedTemplates(file.text, next),
+          `Delete ${removed} published templates`,
+          file.sha,
+        );
         return { removed, skipped: false };
       } catch (error) {
         lastError = error;
         if (!isVersionConflict(error)) throw error;
+        await delay(300 + attempt * 250);
       }
     }
-    console.warn("Published list cleanup skipped.", lastError);
+    console.warn("Published cleanup skipped.", lastError);
     return { removed: 0, skipped: true };
   }
 
   async function hideSelectedTemplates() {
     const ids = selectedTemplateIds();
     if (!ids.length) {
-      notify("No template selected.");
+      notify("No template selected / 还没有选择模板");
       return;
     }
-    const list = studioTemplates();
-    if (ids.length >= list.length) {
-      notify("Keep at least one public template.");
+    if (ids.length >= studioTemplates().length) {
+      notify("Keep at least one public template / 至少保留一个公开模板");
       return;
     }
+
     const form = publishForm();
     if (!form.token) {
-      notify("Add a GitHub token first.");
+      notify("Add a GitHub token first / 请先填写 GitHub token");
       return;
     }
-    if (!window.confirm(`Hide ${ids.length} template(s) from public users?`)) return;
+    if (!window.confirm(`Delete ${ids.length} template(s) globally? / 全网删除 ${ids.length} 个模板？`)) return;
 
     try {
-      status("Updating public hidden list...");
+      status("Updating global delete list...");
       const hiddenResult = await updateHiddenList(form, ids);
       const cleanup = await cleanupPublishedList(form, ids);
       removeLocalTemplates(ids);
+      window.CHINA_POP_HIDDEN_TEMPLATES?.apply?.();
       const hiddenMessage = hiddenResult.newlyHidden
-        ? `Hidden ${ids.length} globally.`
-        : "Selected templates were already hidden globally.";
+        ? `Deleted ${ids.length} globally.`
+        : "Selected templates were already deleted globally.";
       const cleanupMessage = cleanup.skipped
-        ? "Published list cleanup skipped, but users will still not see hidden templates."
-        : `Removed from published list: ${cleanup.removed}.`;
-      notify(`${hiddenMessage} ${cleanupMessage} Page will refresh now.`);
+        ? "Published cleanup skipped, but public users will still not see them."
+        : `Removed from uploaded list: ${cleanup.removed}.`;
+      notify(`${hiddenMessage} ${cleanupMessage} Page will refresh now. / 已同步全网删除，页面马上刷新。`);
       const url = new URL(window.location.href);
       url.searchParams.set("admin", "1");
-      url.searchParams.set("fresh", `hidden-${Date.now()}`);
+      url.searchParams.set("fresh", `deleted-${Date.now()}`);
       window.location.replace(url.toString());
     } catch (error) {
-      console.warn("Global hide failed.", error);
+      console.warn("Global delete failed.", error);
       notify(`Delete failed: ${error.message}`);
     }
   }
@@ -303,10 +400,25 @@
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
-    const button = target.closest("#bulkDeleteGlobal, #adminDeletePublishedTemplate");
+    const button = target.closest("#bulkDeleteLocal, #bulkDeleteGlobal, #adminDeletePublishedTemplate");
     if (!button) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     hideSelectedTemplates();
   }, true);
+
+  function alignDeleteButtons() {
+    const localButton = document.querySelector("#bulkDeleteLocal");
+    if (localButton) localButton.textContent = "Delete checked globally / 删除勾选并同步用户版";
+    const globalButton = document.querySelector("#bulkDeleteGlobal");
+    if (globalButton) globalButton.textContent = "Delete checked globally / 全网删除勾选";
+  }
+
+  alignDeleteButtons();
+  let ticks = 0;
+  const timer = window.setInterval(() => {
+    ticks += 1;
+    alignDeleteButtons();
+    if (ticks >= 24) window.clearInterval(timer);
+  }, 500);
 })();
