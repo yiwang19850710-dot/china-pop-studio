@@ -1,5 +1,36 @@
 (() => {
-  const publishedTemplates = [];
+  const publishedTemplates = [
+    {
+        "id": "gumo-und-nihao-1778275276362",
+        "name": "中国现场 / CHINA LIVE SCENE",
+        "category": "uploaded",
+        "renderer": "uploadedMedia",
+        "colors": [
+            "#d91417",
+            "#f2c45a",
+            "#111820"
+        ],
+        "copy": {
+            "titleZh": "",
+            "titleEn": "",
+            "subtitleZh": "",
+            "subtitleEn": "",
+            "seal": ""
+        },
+        "media": {
+            "kind": "video",
+            "name": "GuMo und Nihao.mp4",
+            "src": "assets/templates/gumo-und-nihao-1778275276362.mp4",
+            "transient": false
+        },
+        "personSlot": {
+            "x": 0.52,
+            "y": 0.49,
+            "scale": 0.76,
+            "shape": "circle"
+        }
+    }
+];
 
   const mediaElementCache = new Map();
 
