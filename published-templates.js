@@ -1,36 +1,6 @@
 (() => {
   const publishedTemplates = [
     {
-        "id": "il-famoso-xi-jinping-1778097968668",
-        "name": "Test",
-        "category": "uploaded",
-        "renderer": "uploadedMedia",
-        "colors": [
-            "#d91417",
-            "#f2c45a",
-            "#111820"
-        ],
-        "copy": {
-            "titleZh": "",
-            "titleEn": "",
-            "subtitleZh": "",
-            "subtitleEn": "",
-            "seal": ""
-        },
-        "media": {
-            "kind": "video",
-            "name": "Il famoso xi jinping.mp4",
-            "src": "assets/templates/Il famoso xi jinping.mp4",
-            "transient": false
-        },
-        "personSlot": {
-            "x": 0.59,
-            "y": 0.38,
-            "scale": 1,
-            "shape": "full"
-        }
-    },
-    {
         "id": "template-1778166307892-1778166307892",
         "name": "中国现场 / CHINA LIVE SCENE",
         "category": "uploaded",
