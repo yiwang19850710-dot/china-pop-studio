@@ -1,4 +1,10 @@
 (() => {
+  if (window.CHINA_POP_HIDDEN_TEMPLATES?.ready) {
+    window.CHINA_POP_HIDDEN_TEMPLATES.install?.();
+    window.CHINA_POP_HIDDEN_TEMPLATES.apply?.();
+    return;
+  }
+
   const hiddenTemplateIds = [
     "bellypark",
     "evening",
@@ -61,6 +67,7 @@
     if (applying || !hiddenTemplateIdSet.size) return 0;
     applying = true;
     try {
+      installRenderHook();
       let removed = 0;
       removed += removeFromList(runtimeTemplates(), hiddenTemplateIdSet);
       removed += removeFromList(window.CHINA_POP_TEMPLATE_CONFIGS, hiddenTemplateIdSet);
@@ -92,7 +99,9 @@
   }
 
   window.CHINA_POP_HIDDEN_TEMPLATES = {
+    ready: true,
     ids: hiddenTemplateIds,
+    install: installRenderHook,
     apply: applyHiddenTemplates,
   };
 
