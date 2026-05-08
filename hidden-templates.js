@@ -1,5 +1,9 @@
 (() => {
   const hiddenTemplateIds = [
+    "bellypark",
+    "evening",
+    "horseyear",
+    "morning",
     "noon",
     "opera",
     "squaredance"
