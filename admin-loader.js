@@ -42,6 +42,7 @@
       await loadScript("admin-publish.js?v=2");
       await loadScript("admin-delete.js?v=2");
       await loadScript("admin-bulk-delete.js?v=4");
+      await loadScript("admin-global-hide-fix.js?v=1");
     } catch (error) {
       console.warn("Admin tools could not load.", error);
       const status = document.querySelector("#status");
