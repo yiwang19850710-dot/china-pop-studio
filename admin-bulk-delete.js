@@ -34,6 +34,11 @@
     if (publishStatus) publishStatus.textContent = message;
   }
 
+  function notify(message) {
+    status(message);
+    window.alert(message);
+  }
+
   function selectedTemplates() {
     return studioTemplates().filter((template) => template?.id && selectedIds.has(template.id));
   }
@@ -101,6 +106,12 @@
     if (label) label.textContent = `${count} selected / 已选 ${count} 个`;
     if (localButton) localButton.disabled = count === 0;
     if (globalButton) globalButton.disabled = count === 0;
+    const legacyGlobalButton = document.querySelector("#adminDeletePublishedTemplate");
+    if (legacyGlobalButton && count > 0) {
+      legacyGlobalButton.textContent = `Delete checked globally / 全网删除勾选 (${count})`;
+    } else if (legacyGlobalButton) {
+      legacyGlobalButton.textContent = "Delete globally / 全网删除当前模板";
+    }
 
     document.querySelectorAll(".bulk-template-wrap").forEach((wrap) => {
       const checked = selectedIds.has(wrap.dataset.templateId);
@@ -275,15 +286,27 @@
     panel.querySelector("#bulkDeleteGlobal").addEventListener("click", deleteCheckedGlobal);
   }
 
+  function hookLegacyGlobalDeleteButton() {
+    const button = document.querySelector("#adminDeletePublishedTemplate");
+    if (!button || button.dataset.bulkDeleteHook === "1") return;
+    button.dataset.bulkDeleteHook = "1";
+    button.addEventListener("click", (event) => {
+      if (!selectedTemplates().length) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      deleteCheckedGlobal();
+    }, true);
+  }
+
   function deleteCheckedLocal() {
     const picked = selectedTemplates();
     const list = studioTemplates();
     if (!picked.length) {
-      status("No checked templates");
+      notify("No checked templates / 还没有勾选模板");
       return;
     }
     if (picked.length >= list.length) {
-      status("Keep at least one template");
+      notify("Keep at least one template / 至少要保留一个模板");
       return;
     }
     if (!window.confirm(`Delete ${picked.length} checked templates from this admin list?`)) return;
@@ -390,18 +413,20 @@
   async function deleteCheckedGlobal() {
     const picked = selectedTemplates();
     if (!picked.length) {
-      status("No checked templates");
+      notify("No checked templates / 还没有勾选模板");
       return;
     }
     const form = publishForm();
     if (!form.token) {
-      status("Add a GitHub token first.");
+      notify("Add a GitHub token first. / 请先填写 GitHub token");
       return;
     }
     if (!window.confirm(`Delete ${picked.length} checked templates from public users?`)) return;
 
     const button = document.querySelector("#bulkDeleteGlobal");
+    const legacyButton = document.querySelector("#adminDeletePublishedTemplate");
     if (button) button.disabled = true;
+    if (legacyButton) legacyButton.disabled = true;
     try {
       status("Updating public template list...");
       const file = await readGithubFile(form, "published-templates.js");
@@ -410,7 +435,7 @@
       const next = current.filter((template) => !ids.has(template?.id));
       const removed = current.length - next.length;
       if (!removed) {
-        status("Checked templates were not in the global published list.");
+        notify("Checked templates were not in the global published list. / 勾选的模板不在全网发布列表里");
         return;
       }
       await writeGithubFile(
@@ -420,16 +445,21 @@
         `Delete ${removed} published templates`,
         file.sha,
       );
+      const removedIds = new Set(current.filter((template) => ids.has(template?.id)).map((template) => template.id));
       picked.forEach((template) => {
-        rememberDeleted(template.id);
-        removeTemplate(template.id);
+        if (removedIds.has(template.id)) {
+          rememberDeleted(template.id);
+          removeTemplate(template.id);
+        }
       });
       selectedIds.clear();
       refresh(`Deleted ${removed} globally. Public users should see it after GitHub Pages updates in 1-3 minutes.`);
+      notify(`Deleted ${removed} globally. / 已全网删除 ${removed} 个模板`);
     } catch (error) {
       console.warn("Bulk global delete failed.", error);
-      status(`Delete failed: ${error.message}`);
+      notify(`Delete failed: ${error.message}`);
     } finally {
+      if (legacyButton) legacyButton.disabled = false;
       updatePanel();
     }
   }
@@ -437,4 +467,5 @@
   installStyles();
   installPanel();
   installRenderHook();
+  hookLegacyGlobalDeleteButton();
 })();
