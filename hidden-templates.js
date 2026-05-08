@@ -6,14 +6,15 @@
   }
 
   const hiddenTemplateIds = [
-    "bellypark",
-    "evening",
-    "horseyear",
-    "morning",
-    "noon",
-    "opera",
-    "squaredance"
-  ];
+  "bellypark",
+  "evening",
+  "horseyear",
+  "morning",
+  "neon",
+  "noon",
+  "opera",
+  "squaredance"
+];
   window.CHINA_POP_HIDDEN_TEMPLATE_IDS = hiddenTemplateIds;
 
   const hiddenTemplateIdSet = new Set(hiddenTemplateIds);
