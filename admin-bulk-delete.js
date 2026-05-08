@@ -13,7 +13,6 @@
   const grid = document.querySelector("#templates");
 
   if (!grid) return;
-  if (document.querySelector("#adminBulkDeletePanel")) return;
 
   function studioTemplates() {
     try {
@@ -39,8 +38,36 @@
     window.alert(message);
   }
 
+  function reloadAdminPage() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("admin", "1");
+    url.searchParams.set("fresh", `deleted-${Date.now()}`);
+    window.location.replace(url.toString());
+  }
+
   function selectedTemplates() {
     return studioTemplates().filter((template) => template?.id && selectedIds.has(template.id));
+  }
+
+  function currentTemplateForDelete() {
+    const list = studioTemplates();
+    const managerIndex = Number(document.querySelector("#managerTemplate")?.value);
+    let index = Number.isInteger(managerIndex) ? managerIndex : 0;
+    try {
+      if (!list[index] && typeof currentTemplate !== "undefined") index = currentTemplate || 0;
+    } catch (error) {
+      index = 0;
+    }
+    return list[index] || null;
+  }
+
+  function templatesForGlobalDelete() {
+    const picked = selectedTemplates();
+    if (picked.length) {
+      return { items: picked, label: `${picked.length} checked templates` };
+    }
+    const current = currentTemplateForDelete();
+    return current ? { items: [current], label: `"${current.name}"` } : { items: [], label: "0 templates" };
   }
 
   function deletedIds() {
@@ -291,7 +318,6 @@
     if (!button || button.dataset.bulkDeleteHook === "1") return;
     button.dataset.bulkDeleteHook = "1";
     button.addEventListener("click", (event) => {
-      if (!selectedTemplates().length) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       deleteCheckedGlobal();
@@ -377,16 +403,19 @@
   async function readGithubFile(form, path) {
     const url = `https://api.github.com/repos/${form.repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(form.branch)}`;
     const response = await fetch(url, { headers: headers(form.token) });
+    if (response.status === 404) return null;
     if (!response.ok) throw new Error(await githubError(response));
     const payload = await response.json();
     return { sha: payload.sha, text: base64ToText(payload.content || "") };
   }
 
   async function writeGithubFile(form, path, text, message, sha) {
+    const body = { message, branch: form.branch, content: textToBase64(text) };
+    if (sha) body.sha = sha;
     const response = await fetch(`https://api.github.com/repos/${form.repo}/contents/${encodePath(path)}`, {
       method: "PUT",
       headers: { ...headers(form.token), "Content-Type": "application/json" },
-      body: JSON.stringify({ message, branch: form.branch, content: textToBase64(text), sha }),
+      body: JSON.stringify(body),
     });
     if (!response.ok) throw new Error(await githubError(response));
   }
@@ -410,10 +439,137 @@
     return `${source.slice(0, arrayStart)}${json}${source.slice(arrayEnd)}`;
   }
 
+  function hiddenTemplatesSource(ids) {
+    const json = JSON.stringify([...new Set(ids)].sort(), null, 2).replace(/</g, "\\u003c");
+    return `(() => {
+  const hiddenTemplateIds = ${json};
+  window.CHINA_POP_HIDDEN_TEMPLATE_IDS = hiddenTemplateIds;
+
+  const hiddenTemplateIdSet = new Set(hiddenTemplateIds);
+  let applying = false;
+
+  function runtimeTemplates() {
+    try {
+      if (typeof templates !== "undefined") return templates;
+    } catch (error) {
+      return [];
+    }
+    return [];
+  }
+
+  function removeFromList(list, idSet) {
+    let removed = 0;
+    if (!Array.isArray(list)) return removed;
+    for (let index = list.length - 1; index >= 0; index -= 1) {
+      if (idSet.has(list[index]?.id)) {
+        list.splice(index, 1);
+        removed += 1;
+      }
+    }
+    return removed;
+  }
+
+  function removeSnapshots(idSet) {
+    try {
+      if (typeof baseTemplateSnapshots !== "undefined") removeFromList(baseTemplateSnapshots, idSet);
+    } catch (error) {
+      console.warn("Could not hide template snapshots.", error);
+    }
+  }
+
+  function refreshAfterHide(shouldRender) {
+    try {
+      const list = runtimeTemplates();
+      if (typeof currentTemplate !== "undefined") {
+        currentTemplate = Math.max(0, Math.min(currentTemplate || 0, Math.max(0, list.length - 1)));
+      }
+      if (typeof syncTemplateManagerList === "function") syncTemplateManagerList();
+      if (typeof populateTemplateManager === "function" && list.length) populateTemplateManager(currentTemplate || 0);
+      if (shouldRender && typeof renderTemplateButtons === "function") renderTemplateButtons();
+      if (typeof applyTemplateDefaults === "function" && list.length) applyTemplateDefaults(currentTemplate || 0);
+    } catch (error) {
+      console.warn("Could not refresh hidden templates.", error);
+    }
+  }
+
+  function applyHiddenTemplates(options = {}) {
+    if (applying || !hiddenTemplateIdSet.size) return 0;
+    applying = true;
+    try {
+      let removed = 0;
+      removed += removeFromList(runtimeTemplates(), hiddenTemplateIdSet);
+      removed += removeFromList(window.CHINA_POP_TEMPLATE_CONFIGS, hiddenTemplateIdSet);
+      removeSnapshots(hiddenTemplateIdSet);
+      if (removed) refreshAfterHide(options.render !== false);
+      return removed;
+    } finally {
+      applying = false;
+    }
+  }
+
+  function installRenderHook() {
+    if (typeof renderTemplateButtons !== "function" || renderTemplateButtons.__hiddenTemplateHook) return;
+    const originalRenderTemplateButtons = renderTemplateButtons;
+    renderTemplateButtons = function renderTemplateButtonsWithHiddenTemplates(...args) {
+      applyHiddenTemplates({ render: false });
+      return originalRenderTemplateButtons.apply(this, args);
+    };
+    renderTemplateButtons.__hiddenTemplateHook = true;
+  }
+
+  function watchForLatePublishedTemplates() {
+    let ticks = 0;
+    const timer = window.setInterval(() => {
+      ticks += 1;
+      applyHiddenTemplates();
+      if (ticks >= 24) window.clearInterval(timer);
+    }, 250);
+  }
+
+  window.CHINA_POP_HIDDEN_TEMPLATES = {
+    ids: hiddenTemplateIds,
+    apply: applyHiddenTemplates,
+  };
+
+  installRenderHook();
+  applyHiddenTemplates();
+  window.setTimeout(() => {
+    installRenderHook();
+    applyHiddenTemplates();
+  }, 0);
+  watchForLatePublishedTemplates();
+})();
+`;
+  }
+
+  function extractHiddenTemplateIds(source) {
+    if (!source) return [];
+    const marker = "const hiddenTemplateIds =";
+    const start = source.indexOf(marker);
+    const arrayStart = source.indexOf("[", start);
+    let arrayEnd = source.indexOf(";\n  window.CHINA_POP_HIDDEN_TEMPLATE_IDS", arrayStart);
+    if (arrayEnd < 0) arrayEnd = source.indexOf(";\r\n  window.CHINA_POP_HIDDEN_TEMPLATE_IDS", arrayStart);
+    if (start < 0 || arrayStart < 0 || arrayEnd < 0) return [];
+    const parsed = Function(`"use strict"; return (${source.slice(arrayStart, arrayEnd)});`)();
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  }
+
+  function replaceHiddenTemplateIds(source, ids) {
+    if (!source) return hiddenTemplatesSource(ids);
+    const marker = "const hiddenTemplateIds =";
+    const start = source.indexOf(marker);
+    const arrayStart = source.indexOf("[", start);
+    let arrayEnd = source.indexOf(";\n  window.CHINA_POP_HIDDEN_TEMPLATE_IDS", arrayStart);
+    if (arrayEnd < 0) arrayEnd = source.indexOf(";\r\n  window.CHINA_POP_HIDDEN_TEMPLATE_IDS", arrayStart);
+    if (start < 0 || arrayStart < 0 || arrayEnd < 0) return hiddenTemplatesSource(ids);
+    const json = JSON.stringify([...new Set(ids)].sort(), null, 2).replace(/</g, "\\u003c");
+    return `${source.slice(0, arrayStart)}${json}${source.slice(arrayEnd)}`;
+  }
+
   async function deleteCheckedGlobal() {
-    const picked = selectedTemplates();
+    const { items: picked, label } = templatesForGlobalDelete();
     if (!picked.length) {
-      notify("No checked templates / 还没有勾选模板");
+      notify("No template selected / 还没有选择模板");
       return;
     }
     const form = publishForm();
@@ -421,40 +577,67 @@
       notify("Add a GitHub token first. / 请先填写 GitHub token");
       return;
     }
-    if (!window.confirm(`Delete ${picked.length} checked templates from public users?`)) return;
+    const list = studioTemplates();
+    const uniquePicked = picked.filter((template, index, array) => {
+      return template?.id && array.findIndex((item) => item?.id === template.id) === index;
+    });
+    if (uniquePicked.length >= list.length) {
+      notify("Keep at least one public template. / 至少保留一个公开模板");
+      return;
+    }
+    if (!window.confirm(`Hide ${label} from public users?`)) return;
 
     const button = document.querySelector("#bulkDeleteGlobal");
     const legacyButton = document.querySelector("#adminDeletePublishedTemplate");
     if (button) button.disabled = true;
     if (legacyButton) legacyButton.disabled = true;
     try {
-      status("Updating public template list...");
-      const file = await readGithubFile(form, "published-templates.js");
-      const ids = new Set(picked.map((template) => template.id));
-      const current = extractPublishedTemplates(file.text);
-      const next = current.filter((template) => !ids.has(template?.id));
-      const removed = current.length - next.length;
-      if (!removed) {
-        notify("Checked templates were not in the global published list. / 勾选的模板不在全网发布列表里");
-        return;
+      status("Updating public delete list...");
+      const ids = new Set(uniquePicked.map((template) => template.id));
+      const publishedFile = await readGithubFile(form, "published-templates.js");
+      let removedPublished = 0;
+
+      if (publishedFile) {
+        const current = extractPublishedTemplates(publishedFile.text);
+        const next = current.filter((template) => !ids.has(template?.id));
+        removedPublished = current.length - next.length;
+        if (removedPublished) {
+          await writeGithubFile(
+            form,
+            "published-templates.js",
+            replacePublishedTemplates(publishedFile.text, next),
+            `Delete ${removedPublished} published templates`,
+            publishedFile.sha,
+          );
+        }
       }
+
+      const hiddenFile = await readGithubFile(form, "hidden-templates.js");
+      const currentHidden = new Set(extractHiddenTemplateIds(hiddenFile?.text || ""));
+      const beforeHiddenCount = currentHidden.size;
+      ids.forEach((id) => currentHidden.add(id));
+      const hiddenIds = [...currentHidden];
+      const newlyHidden = currentHidden.size - beforeHiddenCount;
+
       await writeGithubFile(
         form,
-        "published-templates.js",
-        replacePublishedTemplates(file.text, next),
-        `Delete ${removed} published templates`,
-        file.sha,
+        "hidden-templates.js",
+        replaceHiddenTemplateIds(hiddenFile?.text || "", hiddenIds),
+        `Hide ${uniquePicked.length} templates from public users`,
+        hiddenFile?.sha,
       );
-      const removedIds = new Set(current.filter((template) => ids.has(template?.id)).map((template) => template.id));
-      picked.forEach((template) => {
-        if (removedIds.has(template.id)) {
-          rememberDeleted(template.id);
-          removeTemplate(template.id);
-        }
+
+      uniquePicked.forEach((template) => {
+        rememberDeleted(template.id);
+        removeTemplate(template.id);
       });
       selectedIds.clear();
-      refresh(`Deleted ${removed} globally. Public users should see it after GitHub Pages updates in 1-3 minutes.`);
-      notify(`Deleted ${removed} globally. / 已全网删除 ${removed} 个模板`);
+      const hiddenMessage = newlyHidden
+        ? `Hidden ${uniquePicked.length} globally.`
+        : "Selected templates were already hidden globally.";
+      refresh(`${hiddenMessage} Public users should see it after GitHub Pages updates in 1-3 minutes.`);
+      notify(`${hiddenMessage} Removed from published list: ${removedPublished}. Page will refresh now. / 已更新全网隐藏名单，页面将自动刷新。`);
+      reloadAdminPage();
     } catch (error) {
       console.warn("Bulk global delete failed.", error);
       notify(`Delete failed: ${error.message}`);
