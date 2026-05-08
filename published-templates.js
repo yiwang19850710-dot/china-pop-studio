@@ -1,36 +1,5 @@
 (() => {
-  const publishedTemplates = [
-    {
-        "id": "template-1778166307892-1778166307892",
-        "name": "中国现场 / CHINA LIVE SCENE",
-        "category": "uploaded",
-        "renderer": "uploadedMedia",
-        "colors": [
-            "#d91417",
-            "#f2c45a",
-            "#111820"
-        ],
-        "copy": {
-            "titleZh": "",
-            "titleEn": "",
-            "subtitleZh": "",
-            "subtitleEn": "",
-            "seal": ""
-        },
-        "media": {
-            "kind": "video",
-            "name": "那種早安圖你一定收過。什麼諧音梗、什麼蓮宇宙開光祝福那種（？）早上看到會想翻白眼，但還是默默存下來 🤣這次聯名更誇張。每一款商品都不是隨便貼.mp4",
-            "src": "assets/templates/template-1778166307892-1778166307892.mp4",
-            "transient": false
-        },
-        "personSlot": {
-            "x": 0.5,
-            "y": 0.48,
-            "scale": 0.76,
-            "shape": "full"
-        }
-    }
-];
+  const publishedTemplates = [];
 
   const mediaElementCache = new Map();
 
