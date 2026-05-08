@@ -69,20 +69,34 @@
   function getSupportedRecordingFormat(needsAudio = false) {
     const formats = needsAudio
       ? [
+          { mimeType: "video/mp4;codecs=avc1.42E01E,mp4a.40.2", extension: "mp4", label: "MP4" },
+          { mimeType: "video/mp4;codecs=avc1.4D401E,mp4a.40.2", extension: "mp4", label: "MP4" },
+          { mimeType: "video/mp4;codecs=h264,mp4a.40.2", extension: "mp4", label: "MP4" },
+          { mimeType: "video/mp4;codecs=h264,aac", extension: "mp4", label: "MP4" },
+          { mimeType: "video/mp4", extension: "mp4", label: "MP4" },
           { mimeType: "video/webm;codecs=vp9,opus", extension: "webm", label: "WebM" },
           { mimeType: "video/webm;codecs=vp8,opus", extension: "webm", label: "WebM" },
           { mimeType: "video/webm", extension: "webm", label: "WebM" },
-          { mimeType: "video/mp4;codecs=avc1.42E01E,mp4a.40.2", extension: "mp4", label: "MP4" },
-          { mimeType: "video/mp4;codecs=h264,mp4a.40.2", extension: "mp4", label: "MP4" },
-          { mimeType: "video/mp4", extension: "mp4", label: "MP4" },
         ]
       : [
           { mimeType: "video/mp4;codecs=avc1.42E01E", extension: "mp4", label: "MP4" },
+          { mimeType: "video/mp4;codecs=avc1.4D401E", extension: "mp4", label: "MP4" },
           { mimeType: "video/mp4", extension: "mp4", label: "MP4" },
           { mimeType: "video/webm;codecs=vp8", extension: "webm", label: "WebM" },
           { mimeType: "video/webm", extension: "webm", label: "WebM" },
         ];
     return formats.find(isSupportedFormat) || formats[formats.length - 1];
+  }
+
+  function formatFromMimeType(mimeType, fallback) {
+    const normalized = String(mimeType || fallback?.mimeType || "").toLowerCase();
+    if (normalized.includes("mp4")) {
+      return { mimeType: mimeType || fallback?.mimeType || "video/mp4", extension: "mp4", label: "MP4" };
+    }
+    if (normalized.includes("webm")) {
+      return { mimeType: mimeType || fallback?.mimeType || "video/webm", extension: "webm", label: "WebM" };
+    }
+    return fallback || { mimeType: "video/webm", extension: "webm", label: "WebM" };
   }
 
   function getShareMimeType(filename, blob) {
@@ -501,12 +515,10 @@
           setAppStatus("Video failed, please record again");
           return;
         }
-        const blobType = activeRecorder.mimeType || format.mimeType;
-        const extension = blobType.includes("mp4") ? "mp4" : format.extension;
-        const formatLabel = blobType.includes("mp4") ? "MP4" : format.label;
-        const publicBlobType = extension === "mp4" ? "video/mp4" : "video/webm";
-        const blob = new Blob(activeChunks, { type: publicBlobType });
-        const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.${extension}`, "Save video");
+        const recordedMimeType = activeChunks.find((chunk) => chunk.type)?.type || activeRecorder.mimeType || format.mimeType;
+        const outputFormat = formatFromMimeType(recordedMimeType, format);
+        const blob = new Blob(activeChunks, { type: outputFormat.mimeType });
+        const url = prepareAutoDownload(blob, `china-pop-studio-${Date.now()}.${outputFormat.extension}`, "Save video");
         if (videoPreviewEl) {
           videoPreviewEl.src = url;
           videoPreviewEl.hidden = false;
@@ -515,7 +527,7 @@
         if (outputPanelEl) outputPanelEl.hidden = false;
         activeRecorder = null;
         unlockActionButtons();
-        setAppStatus(`Video ready (${formatLabel})`);
+        setAppStatus(`Video ready (${outputFormat.label})`);
       };
 
       activeRecorder.start(500);
