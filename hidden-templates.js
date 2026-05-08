@@ -13,6 +13,7 @@
   "neon",
   "noon",
   "opera",
+  "porcelain",
   "squaredance"
 ];
   window.CHINA_POP_HIDDEN_TEMPLATE_IDS = hiddenTemplateIds;
