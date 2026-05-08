@@ -1,5 +1,8 @@
 (() => {
-  const hiddenTemplateIds = [];
+  const hiddenTemplateIds = [
+  "opera",
+  "squaredance"
+];
   window.CHINA_POP_HIDDEN_TEMPLATE_IDS = hiddenTemplateIds;
 
   const hiddenTemplateIdSet = new Set(hiddenTemplateIds);
