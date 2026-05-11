@@ -16,6 +16,8 @@
   "gumo-und-nihao-1778274101732",
   "gumo-und-nihao-1778275214465",
   "gumo-und-nihao-1778275219787",
+  "gumo-zusammen-1778532612537",
+  "gumo-zusammen-1778532618684",
   "horseyear",
   "morning",
   "neon",
