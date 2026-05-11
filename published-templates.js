@@ -29,6 +29,36 @@
             "scale": 0.76,
             "shape": "circle"
         }
+    },
+    {
+        "id": "gumo-zusammen-1778532667346",
+        "name": "中国现场 / CHINA LIVE SCENE",
+        "category": "uploaded",
+        "renderer": "uploadedMedia",
+        "colors": [
+            "#d91417",
+            "#f2c45a",
+            "#111820"
+        ],
+        "copy": {
+            "titleZh": "",
+            "titleEn": "",
+            "subtitleZh": "",
+            "subtitleEn": "",
+            "seal": ""
+        },
+        "media": {
+            "kind": "video",
+            "name": "GuMo zusammen ☕️.mp4",
+            "src": "assets/templates/gumo-zusammen-1778532667346.mp4",
+            "transient": false
+        },
+        "personSlot": {
+            "x": 0.4,
+            "y": 0.46,
+            "scale": 0.91,
+            "shape": "oval"
+        }
     }
 ];
 
