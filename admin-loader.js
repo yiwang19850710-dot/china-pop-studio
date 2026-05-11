@@ -40,7 +40,7 @@
       await loadScript("admin-workflow.js?v=3");
       await loadScript("admin-publish.js?v=3");
       await loadScript("admin-bulk-delete.js?v=5");
-      await loadScript("admin-console.js?v=1");
+      await loadScript("admin-console.js?v=2");
     } catch (error) {
       console.warn("Admin tools could not load.", error);
       const status = document.querySelector("#status");
