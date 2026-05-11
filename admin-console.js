@@ -11,6 +11,7 @@
   const MAX_ASSET_BYTES = 95 * 1024 * 1024;
 
   const templateGrid = document.querySelector("#templates");
+  const managerPanel = document.querySelector("#templateManagerPanel");
   const uploadInput = document.querySelector("#managerMediaUpload");
   const generateButton = document.querySelector("#managerGenerateFromMedia");
   const uploadStatus = document.querySelector("#managerMediaStatus");
@@ -43,6 +44,74 @@
 
   function runtimeConfigs() {
     return window.CHINA_POP_TEMPLATE_CONFIGS || [];
+  }
+
+  function normalizedTemplateValue(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[?#].*$/, "")
+      .replace(/\\/g, "/")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function templateGroupKey(template) {
+    if (!template?.id) return "";
+    if (template.renderer === "uploadedMedia") {
+      const mediaName = normalizedTemplateValue(template.media?.name);
+      if (mediaName) return `uploaded-name:${mediaName}`;
+      const mediaSource = normalizedTemplateValue(template.media?.src);
+      if (mediaSource && !mediaSource.startsWith("blob:") && !mediaSource.startsWith("data:")) {
+        return `uploaded-src:${mediaSource}`;
+      }
+    }
+    return `id:${template.id}`;
+  }
+
+  function isPublishedAsset(template) {
+    const src = String(template?.media?.src || "");
+    return Boolean(src && !template?.media?.transient && !src.startsWith("blob:") && !src.startsWith("data:"));
+  }
+
+  function preferTemplate(candidate, current) {
+    const candidatePublished = isPublishedAsset(candidate);
+    const currentPublished = isPublishedAsset(current);
+    if (candidatePublished !== currentPublished) return candidatePublished;
+    return true;
+  }
+
+  function dedupeTemplateList(list) {
+    if (!Array.isArray(list) || list.length < 2) return list || [];
+    const keepByKey = new Map();
+    list.forEach((template, index) => {
+      const key = templateGroupKey(template);
+      if (!key) return;
+      const currentIndex = keepByKey.get(key);
+      if (currentIndex === undefined || preferTemplate(template, list[currentIndex])) {
+        keepByKey.set(key, index);
+      }
+    });
+    const keep = new Set(keepByKey.values());
+    return list.filter((template, index) => {
+      const key = templateGroupKey(template);
+      return !key || keep.has(index);
+    });
+  }
+
+  function relatedTemplateIds(seedIds, list = templatesList()) {
+    const seedSet = new Set(seedIds);
+    const keys = new Set();
+    list.forEach((template) => {
+      if (seedSet.has(template?.id)) {
+        const key = templateGroupKey(template);
+        if (key && !key.startsWith("id:")) keys.add(key);
+      }
+    });
+    list.forEach((template) => {
+      const key = templateGroupKey(template);
+      if (template?.id && key && keys.has(key)) seedSet.add(template.id);
+    });
+    return [...seedSet];
   }
 
   function selectedTemplateIds() {
@@ -374,7 +443,15 @@
       setStatusLine("Updating public template list...");
       await updatePublishedTemplates(
         form,
-        (list) => [...list.filter((item) => item?.id !== publishable.id), publishable],
+        (list) => {
+          const publishKey = templateGroupKey(publishable);
+          const next = list.filter((item) => {
+            if (item?.id === publishable.id) return false;
+            return templateGroupKey(item) !== publishKey;
+          });
+          next.push(publishable);
+          return dedupeTemplateList(next);
+        },
         `Publish template ${publishable.name || publishable.id}`,
       );
       await updateHiddenIds(form, (ids) => ids.filter((id) => id !== publishable.id));
@@ -410,13 +487,15 @@
       if (typeof syncTemplateManagerList === "function") syncTemplateManagerList();
       if (typeof populateTemplateManager === "function") populateTemplateManager(currentTemplate || 0);
       if (typeof renderTemplateButtons === "function") renderTemplateButtons();
+      window.CHINA_POP_TEMPLATE_CLEANUP_API?.cleanup?.();
     } catch (error) {
       console.warn("Could not refresh after delete.", error);
     }
   }
 
   async function deleteSelectedGlobally(button) {
-    const ids = selectedTemplateIds();
+    const selectedIds = selectedTemplateIds();
+    const ids = relatedTemplateIds(selectedIds);
     if (!ids.length) {
       alertDone("Please check templates first. / 请先勾选要删除的模板");
       return;
@@ -440,9 +519,15 @@
       await updateHiddenIds(form, (current) => [...new Set([...current, ...ids])]);
       setStatusLine("Cleaning uploaded template list...");
       const idSet = new Set(ids);
+      const deleteKeys = new Set(
+        templatesList()
+          .filter((template) => idSet.has(template?.id))
+          .map(templateGroupKey)
+          .filter(Boolean),
+      );
       const cleanup = await updatePublishedTemplates(
         form,
-        (list) => list.filter((item) => !idSet.has(item?.id)),
+        (list) => list.filter((item) => !idSet.has(item?.id) && !deleteKeys.has(templateGroupKey(item))),
         `Delete ${ids.length} templates globally`,
       );
       removeLocalTemplates(ids);
@@ -466,7 +551,7 @@
       panel.className = "admin-console-summary";
       templateGrid?.closest("section")?.prepend(panel);
     }
-    panel.textContent = `Templates: ${total} / 当前模板 ${total} 个, Selected: ${selected} / 已选 ${selected} 个`;
+    panel.textContent = `Templates: ${total} / 当前模板 ${total} 个，Selected: ${selected} / 已选 ${selected} 个`;
   }
 
   function installStyles() {
