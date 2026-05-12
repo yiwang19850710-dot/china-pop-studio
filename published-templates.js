@@ -59,6 +59,36 @@
             "scale": 0.91,
             "shape": "oval"
         }
+    },
+    {
+        "id": "627120143-18343591930239949-1425153933472374030-n-1778609214449",
+        "name": "中国名场面 / CHINA SCENE MODE",
+        "category": "uploaded",
+        "renderer": "uploadedMedia",
+        "colors": [
+            "#d91417",
+            "#f2c45a",
+            "#111820"
+        ],
+        "copy": {
+            "titleZh": "",
+            "titleEn": "",
+            "subtitleZh": "",
+            "subtitleEn": "",
+            "seal": ""
+        },
+        "media": {
+            "kind": "image",
+            "name": "627120143_18343591930239949_1425153933472374030_n.jpeg",
+            "src": "assets/templates/627120143-18343591930239949-1425153933472374030-n-1778609214449.jpeg",
+            "transient": false
+        },
+        "personSlot": {
+            "x": 0.44,
+            "y": 0.1,
+            "scale": 0.75,
+            "shape": "oval"
+        }
     }
 ];
 
